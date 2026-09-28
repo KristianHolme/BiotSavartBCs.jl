@@ -1,9 +1,11 @@
 # compute ω=∇×u excluding boundaries
 import WaterLily: permute,∂
 fill_ω!(ml::Tuple,u) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u); restrict!(ml))
-fill_ω!(ω,u) = @loop ω[Ii] = centered_curl(Ii,u) over Ii ∈ inside_u(ω,buff=2)
-Base.@propagate_inbounds centered_curl(Ii::CartesianIndex{4},u) = (I=front(Ii); i=last(Ii); permute((j,k)->∂(k,j,I,u),i))
-Base.@propagate_inbounds centered_curl(Ii::CartesianIndex{3},u) = (I=front(Ii); i=last(Ii); i==1 ? permute((j,k)->∂(k,j,I,u),3) : zero(eltype(u)))
+# components are unrolled so `i` is a compile-time constant in `centered_curl`
+fill_ω!(ω::AbstractArray{T,4},u) where T = @loop (ω[I,1] = centered_curl(1,I,u);
+    ω[I,2] = centered_curl(2,I,u); ω[I,3] = centered_curl(3,I,u)) over I ∈ inside(size_u(ω)[1],buff=2)
+fill_ω!(ω::AbstractArray{T,3},u) where T = @loop ω[I,1] = centered_curl(3,I,u) over I ∈ inside(size_u(ω)[1],buff=2)
+Base.@propagate_inbounds @inline centered_curl(i,I,u) = (j=i%3+1; k=(i+1)%3+1; ∂(k,j,I,u)-∂(j,k,I,u))
 
 # Incompressible & irrotational ghosts
 function pflowBC!(u)
