@@ -12,12 +12,12 @@ Fields:
 - `p`    : pressure solution accumulator
 - `fmm`  : use Fast Multi-level Method (`true`) or tree-sum (`false`)
 """
-struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
+struct BiotSavartPoisson{T,S,V,W<:Tuple,R<:Tuple,F<:AbstractVector} <: AbstractPoisson{T,S,V}
     ml   :: MultiLevelPoisson{T,S,V}
-    ω    :: NTuple
-    tar  :: NTuple
-    ftar :: AbstractVector
-    p    :: AbstractArray
+    ω    :: W
+    tar  :: R
+    ftar :: F
+    p    :: S
     fmm  :: Bool
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array)
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir=flow.perdir)
@@ -25,7 +25,7 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
         tar  = mem.(collect_targets(ω, nonbiotfaces))
         ftar = flatten_targets(tar)
         p   = copy(flow.p)
-        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm)
+        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀),typeof(ω),typeof(tar),typeof(ftar)}(ml,ω,tar,ftar,p,fmm)
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
@@ -40,8 +40,8 @@ the binding constraint on refined grids — with the mean residual additionally 
 sit 10x below it, `Σ|r|/N < tol/10` (same units as the max-norm).
 Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
 """
-function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, tol=2e-3,itmx=32) where N
-    dt = w*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
+function WaterLily.mom_project!(a::AbstractFlow{N,T}, b::BiotSavartPoisson, w, t, tol=2e-3,itmx=32) where {N,T}
+    dt = T(w)*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
     U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
     fill_ω!(b.ω,a.u); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Apply domain BCs with fresh ω
@@ -72,7 +72,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w, t, 
     end
     push!(b.ml.n,nᵖ)
     pflowBC!(a.u)     # Update ghost BCs (domain is already correct)
-    a.p .= b.p/dt     # rescale pressure solution and copy to Flow
+    a.p .= b.p ./ dt  # rescale pressure solution and copy to Flow
 end
 BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
 BCTuple(f::Tuple,t,N) = f
