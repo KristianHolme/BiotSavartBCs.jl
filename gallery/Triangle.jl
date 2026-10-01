@@ -30,20 +30,19 @@ function make_sim_acc(; N=128, R=32, a0=0.5, U=1, Re=1e3, mem=Array)
     map(x,t) = x-SA[N/2-R,N/2-R/4,N/2]
 
     # moving reference frame
-    Ut(i,t::T) where T = i==1 ? convert(T,min(a0*t/R,U)) : zero(T) # velocity BC
+    Ut(i,x,t::T) where T = i==1 ? convert(T,min(a0*t/R,U)) : zero(T) # velocity BC
     BiotSimulation((N,N,N), Ut, R; U,ν=U*R/Re, body=AutoBody(triangle,map), mem)
 end
 # make a writer with some attributes, need to output to CPU array to save file (|> Array)
 import WaterLily: @loop,ω,λ₂
-vort(a) = (@loop sim.flow.f[I,:] .= ω(I,sim.flow.u) over I in inside(sim.flow.p);
-           a.flow.f |> Array)
-_body(a) = (measure_sdf!(a.flow.σ, a.body, WaterLily.time(a)); a.flow.σ |> Array;)
-lamda(a) = (@inside a.flow.σ[I] = λ₂(I, a.flow.u); a.flow.σ |> Array;)
+vtk_ω(a::AbstractSimulation) = (@loop a.flow.f[I,:] .= ω(I,a.flow.u) over I in inside(a.flow.p); a.flow.f |> Array)
+vtk_d(a::AbstractSimulation) = (measure_sdf!(a.flow.σ, a.body, WaterLily.time(a)); a.flow.σ |> Array)
+vtk_λ₂(a::AbstractSimulation) = (@inside a.flow.σ[I] = λ₂(I, a.flow.u); a.flow.σ |> Array)
 
-custom_attrib = Dict("ω"=>vort,"b"=>_body,"λ₂" =>lamda)
+custom_attrib = Dict("ω"=>vtk_ω, "λ₂"=>vtk_λ₂, "d"=>vtk_d)
 # make the writer
 writer = vtkWriter("Triangle_high_Re"; attrib=custom_attrib,
-                   dir="/home/marin/vtk_data")
+                   dir="vtk_data")
 
 # dimensions
 N = 3*2^7; R = N/4
@@ -52,7 +51,7 @@ sim = make_sim_acc(mem=CuArray;N,R,Re=125_000);
 # run simulation
 for t in range(0,6;step=0.02)
     sim_step!(sim,t,remeasure=false)
-    write!(writer,sim);
+    save!(writer,sim);
     @show t
     flush(stdout)
 end

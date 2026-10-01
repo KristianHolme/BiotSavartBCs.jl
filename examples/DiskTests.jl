@@ -5,7 +5,7 @@ WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1) # good idea when acceleratin
 function make_sim_acc(dims; N=128, R=32, a=0.5, U=1, Re=1e3, thk=2, mem=Array, use_biotsavart=false, fmm=true)
     disk2D(x,t) = (z=x-SA[-R,0].-N/2; Rt=R-thk; y=z.-SA[0,clamp(z[2],-Rt,Rt)]; √sum(abs2,y)-thk)
     disk3D(x,t) = (z=x-SA[-R,0,0].-N/2; Rt=R-thk; r=√(z[2]^2+z[3]^2); √(z[1]^2+(r-min(r,Rt))^2)-thk)
-    Ut(i,t::T) where T = i==1 ? convert(T,min(a*t/R,U)) : zero(T) # velocity BC
+    Ut(i,x,t::T) where T = i==1 ? convert(T,min(a*t/R,U)) : zero(T) # velocity BC
     body = length(dims)==2 ? AutoBody(disk2D) : AutoBody(disk3D)
     use_biotsavart && return BiotSimulation(dims, Ut, R; U, ν=U*R/Re, body, mem, fmm)
     Simulation(dims, Ut, R; U, ν=U*R/Re, body, mem)

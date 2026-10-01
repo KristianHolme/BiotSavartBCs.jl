@@ -31,7 +31,7 @@ end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
 
 """
-    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t; tol=2e-3, itmx=32)
+    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t, tol=2e-3, itmx=32)
 
 Custom project method for Biot-Savart BCs. Solves for pressure with a multigrid V-cycle, applying biot_BC! to update the boundary velocity and residual at each iteration.
 Converges with the same criterion as `WaterLily.solver!`: `max|r| < tol` and `Σ|r|/N < tol/10`.
