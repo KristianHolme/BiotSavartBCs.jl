@@ -9,3 +9,4 @@ examples/Manifest.toml
 *.vti
 *.vtu
 vtk_data/
+kirigami/

@@ -1,5 +1,6 @@
 using WaterLily,BiotSavartBCs,StaticArrays
 using SpecialFunctions,ForwardDiff,Plots
+figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
 function lamb_dipole(N;D=3N/4,U=1)
     β = 2.4394π/D
     C = -2U/(β*besselj0(β*D/2))
@@ -70,7 +71,7 @@ for (dist,vec) in enumerate(data)
           c=colors[2+dist],yaxis=:log,legendtitle="Multilevel")
 end
 plt
-savefig("lamb_dipole_error_dists.png")
+savefig(joinpath(figdir,"lamb_dipole_error_dists.png"))
  
 # speed up on boundary only
 pow = 8; N,D = 2^(pow+3)+2,2^pow
@@ -93,4 +94,4 @@ plot!(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_treeC,lw=2,c=reds[6],ls
 plot!(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_fmm,lw=2,c=blues[4],label="FMℓM - CPU")
 plot!(2.0.^collect(0:pow-1),duration_fmmC[end]./duration_fmmC,lw=2,c=blues[6],ls=:dashdot,label="FMℓM - GPU")
 xlims!(1,2^pow); ylims!(.1,10^3)
-# savefig("lamb_dipole_speedup.png")
+savefig(joinpath(figdir,"lamb_dipole_speedup.png"))

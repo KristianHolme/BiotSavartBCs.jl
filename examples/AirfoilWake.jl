@@ -1,11 +1,12 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
 using JLD2,Plots
+figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
 
 function ellipse(D,n,m,Λ=5.0;A₀=1.0,St=0.6,U=1,Re=100,T=Float32,mem=Array,use_biotsavart=false)
     h₀=T(A₀*D/2); ω=T(2π*St*U/D)
     sdf(x,t) = √sum(abs2,SA[x[1]/Λ,x[2]])-D÷2/Λ
     map(x,t) = x .- SA[n*D÷4,m*D÷2-h₀*sin(ω*t)]
-    use_biotsavart && BiotSimulation((n*D,m*D), (U,0), D; body=AutoBody(sdf,map), ν=U*D/Re, T, mem)
+    use_biotsavart && return BiotSimulation((n*D,m*D), (U,0), D; body=AutoBody(sdf,map), ν=U*D/Re, T, mem)
     Simulation((n*D,m*D), (U,0), D; body=AutoBody(sdf,map), ν=U*D/Re, T, mem)
 end
 # parameters
@@ -94,7 +95,7 @@ let
     plot!(plt,[0.5,0.6],mean_CL2,   label= "Biot-Savart (12Lx8L)";marker=:x,ls=:solid,c=blues[6])
     xlims!(0.,0.8); ylims!(-3.5,0.5); plot!(legend=:bottomleft)
     xlabel!("Strouhal number"); ylabel!("Mean Lift coefficient")
-    savefig("CL_mean_deflected_wake.png")
+    savefig(joinpath(figdir,"CL_mean_deflected_wake.png"))
 end
 # Poincaré map
 using DSP
@@ -128,5 +129,5 @@ let
     plot!(plt,[-100,-100],[0.,0.],label="Biot-Savart (12Lx8L)",lw=1.5,color=blues[6])
     xlims!(-15,15);ylims!(-1.5,1.5);
     ylabel!("Drag coefficient");xlabel!("Lift coefficient")
-    savefig("poincare_deflected_wake.png")
+    savefig(joinpath(figdir,"poincare_deflected_wake.png"))
 end
