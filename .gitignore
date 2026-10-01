@@ -2,4 +2,10 @@
 examples/Manifest.toml
 *.jld2
 *.png
+!docs/*.png
 *.gif
+*.mp4
+*.pvd
+*.vti
+*.vtu
+vtk_data/
