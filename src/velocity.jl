@@ -8,7 +8,7 @@ Base.@propagate_inbounds centered_curl(i,I,u) = (j=i%3+1; k=(i+1)%3+1; ∂(k,j,I
 # Incompressible & irrotational ghosts
 function pflowBC!(u)
     N,n = size_u(u)
-    @inline edge(I,j,val) = 2<I.I[j]<N[j] ? val : zero(eltype(u))
+    @inline edge(I,j,val) = 2<I.I[j]<N[j] ? val : zero(val)
     for i ∈ 1:n # we know this is slow on GPUs!!
         for j ∈ 1:n # Tangential direction ghosts, curl=0
             j==i && continue
