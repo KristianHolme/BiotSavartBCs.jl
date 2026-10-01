@@ -81,7 +81,7 @@ Here are a few renderings of the cool things you can do with [`WaterLily.jl`](ht
 
 ## Reproducing the results
 
-The scripts used to produce the results presented [here](https://arxiv.org/abs/2404.09034) are in the `examples` folder, which has its own `Project.toml` environment (Julia `v1.10` or later). Clone the repository and instantiate that environment
+The scripts used to produce the results presented [here](https://arxiv.org/abs/2404.09034) are in the `examples` folder, which has its own `Project.toml` environment (Julia `v1.11` or later). Clone the repository and instantiate that environment
 ```bash
 git clone https://github.com/WaterLily-jl/BiotSavartBCs.jl
 cd BiotSavartBCs.jl
