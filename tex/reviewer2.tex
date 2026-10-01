@@ -1,0 +1,65 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amsfonts}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\newenvironment{comment}[1]{\vspace{4mm}\par\noindent\textbf{Comment #1:}\begin{quote}\itshape}{\end{quote}}\newcommand{\response}[1]{\par\noindent\textbf{Response:} #1}
+
+\title{Response to Reviewer 2}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+Thank you for your positive and constructive comments on the manuscript. We've responded to each comment below. 
+
+Note that, per the Editor's decision, the manuscript has been resubmitted
+as a Standard JFM article rather than a Rapid, removing the page-limit constraint that motivated several of the additions below.
+
+\begin{comment}1
+The manuscript ``Stability of Kirigami parachutes in effectively infinite numerical domains'' presents a timely numerical study on these metamaterials interacting with flow. There have been a new interest in the past couple years at putting kirigami structures in flow, and whereas these studies are mostly experimental, Weymouth and Lauber propose a CFD study to study unmeasured aspects. I find the manuscript well written, interesting and highly relevant. I do have some minor questions I think should be addressed prior to publication.
+
+I will not comment on the Biot-Savard far field boundary condition as this is outside my zone of confort. However, the results of Figure 4 and that of Appendix A do seem to show that the newly implemented BCs do allow achieving domain-size independence.
+\end{comment}
+\response{}
+Thank you very much for the positive feedback. 
+
+\begin{comment}2
+How is the deformed shape of the kirigami obtained? Is a structural finite element
+simulation performed on a shell model of the kirigami disc performed to stretch it?
+What does ``a prescribed deployment height-to-radius ratio $H$ and a parabolic
+profile'' mean? Is the shape purely geometric?
+\end{comment}
+\response{}
+Yes it is a purely geometric shape. Concentric rings with a prescribed parabolic offset and sinusoidal oscillation. As you mention above, one of the goals of this study was to adjust the geometry independent of the fluid drag. We've clarified this model choice and the shape itself in the text at the top of page 3, labeling and adding a profile curve to Fig 1, and including a section view of the shape in the new Fig 3 on page 6. 
+
+\begin{comment}3
+In regards to the question above about the prescribed shape, could the authors comment on how this prescribed shape is different from the one that would result from true FSI? I do not question the validity or relevance of the approach of the authors, I simply wonder what physics is left out from these hypotheses and how significant could this be.
+\end{comment}
+\response{}
+This is a natural question, and we've clarified our modeling choices in Section 2. As discussed at the top of page 3, there have already been multiple experimental and simplified structural studies on design and internal force balance of kirigami structures. These studies have shown the ability to design the cuts and stiffness to achieve various stable shapes which qualitatively match our geometry. Of course, we are missing any in-flight structural oscillations from our model, but the time scale of the deformation is tiny compared to that of the flight-stability, allowing for clean separation of those effects. 
+
+\begin{comment}4
+How is the added-mass tensor computed (line 69)?
+\end{comment}
+\response{}
+We've clarified in the second paragraph of page 4 that we use a unit acceleration simulation for each degree of freedom to assemble the added mass matrix. This is only 3 single-time-step ``pre-processing simulations`` per geometry. 
+
+\begin{comment}5
+At line 111, the acceleration is written at $a=R/2U^2$. This relation seems inverted.
+\end{comment}
+\response{}
+Thank you for catching this typo. The first paragraph of section 3 on page 5 now has the correct $a=U^2/2R$ relationship, as used in the simulations.
+
+\begin{comment}6
+Do the $m_{11}$, $m_{22}$, $m_{66}$ refer to the added mass in translation in the
+$x$-direction, in the $y$-direction, and in rotation around the $z$-direction,
+respectively? $m_{11}$ is the axial added mass, while $m_{66}$ is for rotation about
+a diameter?
+\end{comment}
+\response{}
+Yes, this is now clarified just below equation 3.1 ``$m_{11}$ is the added mass for vertical acceleration (in-line with the ring symmetry axis), $m_{66}$ is the added rotational inertia in pitch (perpendicular to the ring axis), and $w = R/N_r$ and $r_i=iw$, are the width and outer radius of each ring. The added mass due to horizontal acceleration, $m_{22}$, is much smaller, but nonzero due to the finite ring thickness.''
+
+\end{document}
