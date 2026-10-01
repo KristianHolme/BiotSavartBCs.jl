@@ -1,13 +1,18 @@
 # BiotSavartBCs
 
-[![Build Status](https://github.com/weymouth/BiotSavartBCs.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/weymouth/BiotSavartBCs.jl/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Build Status](https://github.com/WaterLily-jl/BiotSavartBCs.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/WaterLily-jl/BiotSavartBCs.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-![disk](tex/fig/disk_high_re_7.png)
+![disk](docs/disk_high_re.png)
 
 This repository defines an extension to the [WaterLily.jl](https://github.com/WaterLily-jl/WaterLily.jl) flow solver, adding "external flow" boundary conditions based on the [Biot-Savart equation](https://en.wikipedia.org/wiki/Biot%E2%80%93Savart_law#Aerodynamics_applications). This equation is used to update the velocity *on the boundaries* of the simulation domain based on the vorticity *within* the domain. The resulting boundary conditions are an excellent model for external flow, allowing you to use very small domains around any immersed bodies. [See the paper for the detailed methodology and validation.](https://physics.paperswithcode.com/paper/using-biot-savart-to-shrink-eulerian-domains)
 
 ### WaterLily.jl Simulations with BiotSavartBCs.jl
 
+Install the package from the Julia package manager
+```julia
+julia> ]
+pkg> add BiotSavartBCs
+```
 Using these new boundary conditions within a `WaterLily` simulation is really straightforward; this requires changing only two (😱) lines of code. The first one is obviously
 
 ```julia
@@ -64,7 +69,7 @@ There is currently no way to implement mixed Biot-Savart & periodic boundary con
 
 ### Gallery
 
-Here are a few renderings of the cool things you can do with [`WaterLily.jl`](https://github.com/weymouth/WaterLily.jl) and these new Biot-Savart BCs
+Here are a few renderings of the cool things you can do with [`WaterLily.jl`](https://github.com/WaterLily-jl/WaterLily.jl) and these new Biot-Savart BCs
 
 #### Flow behind a square plate at Re=125,000
 [![square1](https://img.youtube.com/vi/CNQqI5rRdug/0.jpg)](https://www.youtube.com/shorts/CNQqI5rRdug)
@@ -76,46 +81,17 @@ Here are a few renderings of the cool things you can do with [`WaterLily.jl`](ht
 
 ## Reproducing the results
 
-To reproduce the results presented [here](https://arxiv.org/abs/2404.09034), you will need a working `Julia` kernel, preferably `v.1.10.x`. You will also need a version of the [`WaterLily.jl`](https://github.com/weymouth/WaterLily.jl) flow solver.
-
-The first step before using these new boundary conditions is to clone this repository somewhere on your machine; I will assume that this repository is to be cloned into a `Workspace` folder on your machine. The first thing to do is to go into this directory
+The scripts used to produce the results presented [here](https://arxiv.org/abs/2404.09034) are in the `examples` folder, which has its own `Project.toml` environment (Julia `v1.10` or later). Clone the repository and instantiate that environment
 ```bash
-cd ~/Workspace
+git clone https://github.com/WaterLily-jl/BiotSavartBCs.jl
+cd BiotSavartBCs.jl
+julia --project=examples -e "using Pkg; Pkg.instantiate()"
 ```
-Then, you can clone the `BiotSavartBCs.jl` (and the `WaterLily.jl` solver if you don't already have it, note that you cannot use the official `WaterLily` release from the `Julia` package manager to run these test due to some function incompatibility)
+and then run any of the example scripts within it, e.g.
 ```bash
-git clone https://github.com/weymouth/BiotSavartBCs.jl
-(git clone https://github.com/weymouth/WaterLily.jl)
+julia --project=examples examples/ImpulsiveCircle.jl
 ```
-The next step is to `dev` the `BiotSavartBCs.jl` into the `julia` environment you are using to run the `WaterLily` simulations.
-
-### Activate the `BiotSavartBCs` environment
-
-I will assume you are using `BiotSavartBCs.jl` with `WaterLily` and that you have an `examples` folder on your machine which contains a `Project.toml` file that sets the environment used to run the simulations. 
-
-Start by opening `julia` and activate this environment
-```bash
-julia --project=/PATH/TO/BiotSavartBCs.jl/examples
-```
-This will open julia; use the package manager to `dev` the `BiotSavartBCs.jl`
-```julia
-julia> ]
-(examples) pkg> dev /PATH/TO/BiotSavartBCs.jl
-...
-(examples) pkg> instantiate
-...
-```
-This will install and precompile some of the packages required to use this new package. If you have elected to use the github version of WaterLily, you can also `dev` it in the same way
-```julia
-(examples) pkg> dev /PATH/TO/WaterLily.jl
-...
-(examples) pkg> instantiate
-...
-```
-You can then import the `BiotSavartBCs.jl` package and use it within a `WaterLily` simulation.
-```julia
-using BiotSavartBCs
-```
+The examples are set up to run with `mem=CUDA.CuArray` and require an NVIDIA GPU; use `mem=Array` to run them (slowly) on the CPU.
 
 ### Citing
 
