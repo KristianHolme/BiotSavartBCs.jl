@@ -1,0 +1,66 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amsfonts}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\newenvironment{comment}[1]{\vspace{4mm}\par\noindent\textbf{Comment #1:}\begin{quote}\itshape}{\end{quote}}
+\newcommand{\response}[1]{\par\noindent\textbf{Response:} #1}
+
+\title{Response to Reviewer 1}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+Thank you for your positive and constructive comments on the manuscript. We've responded to each comment below. 
+
+Note that, per the Editor's decision, the manuscript has been resubmitted
+as a Standard JFM article rather than a Rapid, removing the page-limit constraint that motivated several of the additions below.
+
+\begin{comment}{1}
+1. The work is quite interesting, but it does not seem like it's well-suited for a JFM
+Rapids. The manuscript tries to provide information about both a new numerical method
+and physical insights from modeling results, and because of this, neither topic is
+treated in-depth as they should be. Was any validation completed? Was any comparison
+to experiments attempted? I think that the work should be expanded on and submitted
+as a standard JFM.
+\end{comment}
+\response{}
+Thank you for the feedback. We have expanded the paper to address the comments. Specifically, we now have room to include the detailed convergence study, the new Fig 3, page 6. This figure demonstrates perfect second order convergence numerically, with less than 1\% error between the resolution used throughout the paper and an even fine resolution. We can not directly compare to the experiments of previous authors because their deployment length is a reaction to drag force, and therefore speed, while in this work, we control the deployment length independently. However, out trends with increasing $H$ match the moment trends in the wind tunnel experiments of Lamoureux et al 2025, a point which we have further clarified on page 6, as well as our qualitative match to the free falling experiments from that study, page 8.  
+
+\begin{comment}{2}
+Some mention of ALE approaches should be included in the introduction \ldots there are
+many examples of FSI parachute simulations (e.g. \url{https://doi.org/10.2514/1.J064791})
+that do not require extremely large computational domains and can still account for
+parachute motion, deceleration, free-fall, etc. Would an ALE approach work for this
+problem?
+\end{comment}
+\response{}
+We believe an advanced ALE method could be used for these simulations, but the low deployment levels would be pushing their limits. We've expanded the lit review and included a discussion specifically on ALE methods used for parachute simulation (second paragraph, page 2). As discussed, ALE methods typically avoid modeling very small scale openings directly, using a modified boundary condition instead (basically Darcy-type flow). This would make resolving the flow through the narrow kirigami slit challenging. As discussed in the following paragraph, while ALE (or any fitted grid method) can use aggressive grid expansion to inflate domains efficiently, there are known accuracy issues when doing so and this is more problematic for immersed boundary methods. 
+
+\begin{comment}{3}
+Is there no structure deformation considered -- i.e., is the parachute treated as a
+rigid body (line $\sim$63)? If so, why is this work only 3-DOF vs 6-DOF? If I am
+interpreting the work correctly, those seem like very limiting assumptions.
+\end{comment}
+\response{}
+This is a natural question, and we've clarified our modeling choices in Section 2. As discussed at the top of page 3, there have already been multiple experimental and simplified structural studies on design and internal force balance of kirigami structures. One of the main advantages we see in this work is the ability to study geometry and fluid dynamic effects independently. In addition, the time scale of the deformation is tiny compared to that of the flight-stability, allowing for clean separation of those effects. 
+
+The restriction to rigid body motion in the 2D plane is clarified at the top of page 4. Our geometry is fully symmetric in $z$, so the motion naturally stays in the x-y plane unless specifically perturbed out of this plane. The previous kirigami drop experiments report 2D trajectories indicating this symmetry is stable, unlike the chaotic and tumbling 3D motions which can be observed for some falling systems.
+
+\begin{comment}4
+A figure showing the height-to-radius ratio $H$ would be quite useful.
+\end{comment}
+\response{}
+We've augmented figure 1 to label $R$, $HR$ and show the parabolic profile. A cross section of the geometry is also found in the new Fig 3. 
+
+\begin{comment}5
+Line $\sim$115 -- were any mesh convergence studies completed? How long do these
+simulations take to run? Is three cells per ring thickness adequate resolution? How was this determined.
+\end{comment}
+\response{}
+As mentioned above, we now have room to include our convergence study on page 6 - which shows second order convergence and extremely low error. Our geometry has 2\% thickness, which comes out to 3.4 cells at the ``full" resolution of $R=171$ cells. As clarified on page 6, Lauber et al 2022 validates the IB method for dynamic thin structures. (Also, the resolution was incorrectly reported as $R=85$ in the initial submission. All of the results, scripts and results are unchanged - just a human error in converting from domain size to disk resolution in the write-up.) At the bottom of that paragraph we now report a representative run time - around 12 minutes for each of the impulsive acceleration tests at full resolution. This works out to be less than 4ns per DOF per dt; very close to the WaterLily benchmarks published in Weymouth and Font 2025, despite the additional cost of the Biot-Savart BCs.
+
+\end{document}
