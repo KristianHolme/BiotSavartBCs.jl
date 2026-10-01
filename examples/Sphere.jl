@@ -20,22 +20,18 @@ for domain in params
         -WaterLily.pressure_force(sim)[1]/(0.5π*sim.L^2)
     end
     t = map(i->string(i),domain)
-    jldsave("sphere_$(t[1])x$(t[2])x$(t[3]).jld2"; p=Array(sim.flow.p), 
+    jldsave(joinpath(@__DIR__,"sphere_$(t[1])x$(t[2])x$(t[3]).jld2"); p=Array(sim.flow.p),
             u=Array(sim.flow.u), time=time, drag=drag)
 end
 
 using Plots
-let 
-    path = "/home/marin/Workspace/BiotSavartBCs.jl/examples/"
-    small = jldopen(path*"sphere_320x128x128.jld2")
-    medium = jldopen(path*"sphere_480x192x192.jld2")
-    large = jldopen(path*"sphere_640x256x256.jld2")
+figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
+let
+    small = jldopen(joinpath(@__DIR__,"sphere_320x128x128.jld2"))
+    medium = jldopen(joinpath(@__DIR__,"sphere_480x192x192.jld2"))
+    large = jldopen(joinpath(@__DIR__,"sphere_640x256x256.jld2"))
     blues = colormap("Blues", 8)[3:end] # Biot savart
- 
-    blockage = plot(ylims=(0.25,0.5), xlims=(0,1),
-                    xlabel="πR²/A", lw=0, legend=:bottomright, size=(400,400),
-                    right_margin=Plots.Measures.Length(:mm, 5),
-                    ylabel="Mean drag coefficient", )
+
     drag = plot(xlims=(0,200),ylims=(0.25,0.5),
                 xlabel="Convective time", legend=:bottomright, size=(400,400),
                 right_margin=Plots.Measures.Length(:mm, 5),
@@ -47,13 +43,9 @@ let
         fx, t = case["drag"][idx], t[idx]
         CD_mean = sum(fx[2:end].*diff(t))/sum(diff(t))
         println("▷ ΔT [CTU] = $(t[end]-t[1])")
-        println("▷ CD mean = $CD_mean")
-        scatter!(blockage, [(π*44^2)/D^2], [CD_mean], label=:none, c=blues[i])
+        println("▷ πR²/A = $(round(π*44^2/D^2,digits=3)), CD mean = $CD_mean") # quoted in the paper text
     end
-    for (i,pl) in enumerate([blockage drag])
-        hline!(pl, [0.394], linestyle=:dash, color=:black, label=ifelse(i==1,"Rodriguez et al. (DNS)",:none))
-        hline!(pl, [0.355], linestyle=:dot, color=:grey, label=ifelse(i==1,"Yun et al. (LES)",:none))
-    end
-    savefig(drag,"drag.png")
-    savefig(blockage,"validation_sphere.png")
+    hline!(drag, [0.394], linestyle=:dash, color=:black, label=:none) # Rodriguez et al. (DNS)
+    hline!(drag, [0.355], linestyle=:dot, color=:grey, label=:none)   # Yun et al. (LES)
+    savefig(drag,joinpath(figdir,"drag.png"))
 end

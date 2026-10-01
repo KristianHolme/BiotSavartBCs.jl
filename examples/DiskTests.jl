@@ -1,6 +1,7 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
 using JLD2,Plots
 using Logging; disable_logging(Logging.Debug)
+figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=1) # good idea when accelerating from rest
 function make_sim_acc(dims; N=128, R=32, a=0.5, U=1, Re=1e3, thk=2, mem=Array, use_biotsavart=false, fmm=true)
     disk2D(x,t) = (z=x-SA[-R,0].-N/2; Rt=R-thk; y=z.-SA[0,clamp(z[2],-Rt,Rt)]; √sum(abs2,y)-thk)
@@ -74,6 +75,6 @@ let
             end
         end
     end
-    xlims!(f_t,0,3); ylims!(f_t,0,4); savefig(f_t,"Disk_force_comparison_methods.png")
-    xlims!(f_f,0,3); ylims!(f_f,0,10); savefig(f_f,"Disk_force_comparison.png")
+    xlims!(f_t,0,3); ylims!(f_t,0,4); savefig(f_t,joinpath(figdir,"Disk_force_comparison_methods.png"))
+    xlims!(f_f,0,3); ylims!(f_f,0,10); savefig(f_f,joinpath(figdir,"Disk_force_comparison.png"))
 end

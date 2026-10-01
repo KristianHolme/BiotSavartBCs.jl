@@ -48,6 +48,7 @@ duration_treeC = [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=false) for dist ∈
 duration_fmmC =  [btime_biotBC!(uC,U,ωC,tarC,ftarC,dist;fmm=true) for dist ∈ 2 .^ collect(0:pow-1)]
 
 using Plots,JLD2
+figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
 reds = colormap("Reds",8)[3:end]
 blues = colormap("Blues",8)[3:end]
 plot(2.0.^collect(0:5),duration_fmmC[end]./duration_tree,xlabel="S",ylabel="speedup",
@@ -56,7 +57,7 @@ plot(2.0.^collect(0:5),duration_fmmC[end]./duration_tree,xlabel="S",ylabel="spee
      plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmm,lw=2,c=blues[4],label="FMℓM - CPU")
 plot!(2.0.^collect(0:5),duration_fmmC[end]./duration_fmmC,lw=2,c=blues[6],ls=:dashdot,label="FMℓM - GPU")
 jldsave("Hill_speedup.jld2";times=[duration_tree,duration_fmm,duration_treeC,duration_fmmC])
-savefig("Hill_speedup_dists.png")
+savefig(joinpath(figdir,"Hill_speedup_dists.png"))
 
 # Check error scaling with dist
 @inline d(I) = √sum(abs2,loc(0,I) .- (N-2)/2) - D/2;
@@ -95,4 +96,4 @@ for (dist,vec) in enumerate(data)
           c=colors[2+dist],yaxis=:log,legendtitle = "Multilevel")
 end
 plt
-savefig("Hill_error_dists.png")
+savefig(joinpath(figdir,"Hill_error_dists.png"))

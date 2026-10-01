@@ -48,7 +48,7 @@ An alternative approach is to utilize some form of potential flow boundary condi
 where $\vec{u}_\omega$, $\nabla\phi$, $\vec{U}_\infty$ are the incompressible, irrotational, and the free-stream components, respectively. While these methods are elegant, they rely either on a single unbounded direction as in \cite{Grosch1977NumericalTransforms} or formulating the problem in a coordinate system where two unbounded directions are transformed to a single one (for example, from Cartesian to Cylindrical in \cite{Levy2022SolvingMethod}), which do not occur regularly in practical flow applications.
 %For flows with one \cite{Grosch1977NumericalTransforms} or two unbounded directions \cite{Rennich1997NumericalDirections, Levy2022SolvingMethod}, coordinate transforms and/or analytical potential flow solution \cite{Tsynkov1998NumericalReview} can be applied in the unbounded directions. 
 
-A related class of methods solves unbounded Poisson equations by incorporating the unbounded conditions as Dirichlet boundary data, either by successive relaxed iterations of the Poisson problem with the Dirichlet data computed using the previous solution \cite{Miller2008AnBoundaries} or by using the James-Lackner \cite{Jamb1977TheDistributions, Lackner1976COMPUTATIONEQUILIBRIA} algorithm that solves two nested domain Poisson problems, the inner domain with homogeneous Neumann boundary conditions and outer domain with inhomogeneous Neumann boundary conditions computed from a boundary convolution of the inner solution with the fundamental solution to the Poisson operator. To accelerate the convolution, multilevel approximation \cite{Mccorquodale2006ADimensions} or local correction methods \cite{Kavouklis2019ComputationCorrections} can be used.
+A related class of methods solves unbounded Poisson equations by incorporating the unbounded conditions as Dirichlet boundary data, either by successive relaxed iterations of the Poisson problem with the Dirichlet data computed using the previous solution \cite{Miller2008AnBoundaries} or by using the James-Lackner \cite{Jamb1977TheDistributions, Lackner1976ComputationEquilibria} algorithm that solves two nested domain Poisson problems, the inner domain with homogeneous Neumann boundary conditions and outer domain with inhomogeneous Neumann boundary conditions computed from a boundary convolution of the inner solution with the fundamental solution to the Poisson operator. To accelerate the convolution, multilevel approximation \cite{Mccorquodale2006ADimensions} or local correction methods \cite{Kavouklis2019ComputationCorrections} can be used.
 
 Finally, fundamental solutions to discrete operators (Lattice Green's functions or LGFs) and their asymptotic expansions can be used to solve the discrete Poisson equations on unbounded domains \cite{Liska2014AEquations, Beckers2022PlanarGrids}. 
 % Points close to the source are evaluated with the discrete kernel (accurate), while points far away are evaluated with the asymptotic expansion (fast).
@@ -223,14 +223,14 @@ Finally, we note that we can parallelize the velocity reconstruction to further 
 
 We first validate the application of the Biot-Savart boundary conditions using a set of impulsive flow problems. The flow is truly irrotational outside the computational domain, matching the implicit assumptions required to use the Biot-Savart equations to reconstruct the velocity on the boundary. 
 
-Our Biot-Savart boundary conditions are implemented inside \textbf{\color{cyan}{{WaterLily.jl}}}\footnote{\url{https://github.com/WaterLily-jl/WaterLily.jl}}, a fast, immersed-boundary flow solver based on the Boundary data immersion method \cite{Maertens2015} that can execute both on CPU and GPU \cite{Weymouth2023WaterLily.jl:Execution}. To leverage the GPU capability of the flow solver and fully benefit from our novel boundary conditions, we perform all computations presented herein on an NVIDIA-A6000 GPU (48GB memory). The complete code and instructions needed to reproduce these results are freely available at \url{https://github.com/weymouth/BiotSavartBCs.jl}.
+Our Biot-Savart boundary conditions are implemented inside \textbf{\color{cyan}{{WaterLily.jl}}}\footnote{\url{https://github.com/WaterLily-jl/WaterLily.jl}}, a fast, immersed-boundary flow solver based on the Boundary data immersion method \cite{Maertens2015} that can execute both on CPU and GPU \cite{Weymouth2025WaterLily.jl:Bodies}. To leverage the GPU capability of the flow solver and fully benefit from our novel boundary conditions, we perform all computations presented herein on an NVIDIA-A6000 GPU (48GB memory). The complete code and instructions needed to reproduce these results are freely available at \url{https://github.com/weymouth/BiotSavartBCs.jl}.
 
 
 \subsection{Flow around a 2D cylinder at $\text{Re}=550$}
 
 We start our analysis with the flow behind a 2D circular cylinder of diameter $D$. The cylinder is immersed in a viscous fluid and impulsively accelerated to free-stream velocity $U$. The viscosity is set such that the Reynolds number is $\text{Re}=\frac{UD}{\nu}=550$. We set $D=128$ cells for all tests and use a $2\times 1$ rectangular domain, varying the width $W$ from $=2D\ldots 20D$. Figure~\ref{fig:cylinder_force}(left) shows the vorticity field on the smallest domain at convective time $t^*=tU/D=4$.
 
-Figure~\ref{fig:cylinder_force}(right) compares the predicted drag coefficient using the new Biot-Savart boundary conditions to the analytical solution \cite{Collins1973TheCylinder} (for $t^*\ll 1$) and two sets of reference data from high-resolution vortex-based methods \cite{KoumoutsakostAN1995High-resolutionMethods, Gillis2019AMethod}. The new condition is able to accurately predict the total drag force on the cylinder, matching the theoretical and vortex-based methods even when using the smallest $4D\times2D$ domain with 50\% blockage. 
+Figure~\ref{fig:cylinder_force}(right) compares the predicted drag coefficient using the new Biot-Savart boundary conditions to the analytical solution \cite{Collins1973TheCylinder} (for $t^*\ll 1$) and two sets of reference data from high-resolution vortex-based methods \cite{Koumoutsakos1995High-resolutionMethods,Gillis2019AMethod}. The new condition is able to accurately predict the total drag force on the cylinder, matching the theoretical and vortex-based methods even when using the smallest $4D\times2D$ domain with 50\% blockage. 
 % Using an even smaller $3D\times1.5D$ domain is still numerically stable, but causes the starting vortex pair to exceed the domain boundaries by $tU/D\approx3$. 
 Reflective boundary conditions induce extremely large blockage effects for small domains and only slowly converge to the external flow solution. Even using a domain 100 times larger produces noticeable deviations for $t^*>3.5$. %Additionally, we compare the results obtained with a grid aligned with the mean flow direction to results obtained on a $7D\times 7D$ domain where the flow direction is $\vec{U}=[\sfrac 1{\sqrt{2}},\sfrac 1{\sqrt{2}}]$ with the Biot-Savart boundary conditions. Results are also presented in Fig.~\ref{fig:cylinder_force} and are almost indistinguishable from the results using the aligned domain.
 
@@ -240,17 +240,17 @@ Reflective boundary conditions induce extremely large blockage effects for small
     \centering
     \begin{subfigure}{.4\textwidth}
         \hspace{-5mm}
-        \includegraphics[width=\textwidth]{tex//fig/ImpCircle_4_vort.png}
+        \includegraphics[width=\textwidth]{fig/ImpCircle_4_vort.png}
         \vspace{10mm}
     \end{subfigure}%
     \begin{subfigure}{.55\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex//fig/ImpCircle_Cd.png}
+        \includegraphics[width=\textwidth]{fig/ImpCircle_Cd.png}
         \vspace{-5mm}
     \end{subfigure}%
     % \begin{subfigure}{.5\textwidth}
     %     \centering
-    %     \includegraphics[width=\textwidth]{tex/fig/fft.png}
+    %     \includegraphics[width=\textwidth]{fig/fft.png}
     % \end{subfigure}%
     \caption{Impulsively started circular cylinder at $\text{Re}=550$ validation case. (Right) Vorticity field $\omega D/U$ at convective time $tU/D=4$ over the full $2D\times 4D$ domain. (left) Early time history of the drag coefficient $C_d=F_d/\frac 12 \rho U^2 D$ for various domain blockage ratios $D/W$. The present Biot-Savart BCs match the theoretical and vortex-based methods even with 50\% blockage.
     % (right) The frequency spectrum of the wake of a cylinder at $\text{Re}=200$, which shows that the new boundary condition predicts the classical shedding frequency at $\text{St}=0.3$ independent of domain size.
@@ -282,7 +282,7 @@ Figure~\ref{fig:disk_flow_1} shows the vorticity and pressure field for three co
 
 \begin{figure}
     \centering
-    \includegraphics[trim={0cm 1cm 0cm 0.5cm},clip,width=0.8\textwidth]{tex/fig/flow_disk.png}
+    \includegraphics[trim={0cm 1cm 0cm 0.5cm},clip,width=0.8\textwidth]{fig/flow_disk.png}
     \caption{Flow around an initially stationary disk accelerated in a quiescent flow at three convective times, $t^*\in [1,2,3]$, using the reflective boundary conditions (top) and the Biot-Savart boundary condition (bottom). A slice through the middle of the entire computational domain is shown. The top half shows 10 iso-contour of the vorticity, equally spaced in the interval $\omega R/U\in\pm20$. The bottom half shows the pressure field, with 10 iso-contour equally spaced in $p/\rho U^2\in\pm2$.}
     \label{fig:disk_flow_1}
 \end{figure}
@@ -295,12 +295,12 @@ Fig.~\ref{fig:disk_forces} shows the time trace of the pressure force acting on 
     \centering
     \begin{subfigure}{.5\textwidth}
         \centering
-         \includegraphics[width=\textwidth]{tex//fig/Disk_force_comparison.png}
+         \includegraphics[width=\textwidth]{fig/Disk_force_comparison.png}
          \caption{}
     \end{subfigure}%
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{tex/fig/Disk_force_comparison_methods.png}
+        \includegraphics[width=\linewidth]{fig/Disk_force_comparison_methods.png}
         \caption{}
     \end{subfigure}%
     \caption{Instantaneous pressure forces normalized by added mass acting on the 2 and 3D disk accelerated from rest for (a) the two different boundary conditions and (b) for different Biot-Savart kernels (tree-sum and FM$\ell$M) and different subdomain half-width $\tilde S$ for the 3D disk. The convective time corresponds to the snapshots shown in Fig.~\ref{fig:disk_flow_1}.}
@@ -309,7 +309,7 @@ Fig.~\ref{fig:disk_forces} shows the time trace of the pressure force acting on 
 
 % \begin{figure}
 %     \centering
-%     \includegraphics[width=0.65\textwidth]{tex//fig/Disk_force_comparison.png}
+%     \includegraphics[width=0.65\textwidth]{fig/Disk_force_comparison.png}
 %     \caption{Instantaneous pressure force acting on the disk for the two different boundary conditions. The convective time corresponds to the snapshots shown in Fig.~\ref{fig:disk_flow_1}}
 %     \label{fig:disk_forces}
 % \end{figure}
@@ -328,7 +328,7 @@ We qualitatively compare the shape of the vortex ring forming behind our acceler
 \begin{figure}
     \centering
     \def\svgwidth{1\columnwidth}
-    \input{tex/fig/vortex_square_plate_oblique.pdf_tex}
+    \input{fig/vortex_square_plate_oblique.pdf_tex}
     \caption{Vortex formation behind the square plate at $\text{Re}=125\,000$ at four different instants viewed from an oblique angle. The top row is the flow visualization from \cite{Higuchi1996Three-dimensionalPlates}, and the bottom row is the same view from our simulations using $\lambda_2L^2/U^2=-2\times10^{-7}$ for the vortex identification. The plate is omitted for clarity. An animation of these still frames is provided in the supplementary material.}
     \label{fig:square_disk_comparison_oblique}
 \end{figure}
@@ -336,7 +336,7 @@ An excellent agreement between the simulations and the experiments is found for 
 \begin{figure}
     \centering
     \def\svgwidth{1\columnwidth}
-    \input{tex/fig/vortex_square_plate.pdf_tex}
+    \input{fig/vortex_square_plate.pdf_tex}
     \caption{Vortex formation behind the square plate at $\text{Re}=125\,000$ at four different instants. The top row is the flow visualization from \cite{Higuchi1996Three-dimensionalPlates}, and the bottom row is the same view from our simulations using $\lambda_2L^2/U^2=-2\times10^{-7}$ for the vortex identification. The plate is omitted for clarity.}
     \label{fig:square_disk_comparison}
 \end{figure}
@@ -351,12 +351,12 @@ Next, we study the accuracy of the new Biot-Savart conditions on flow cases with
     \centering
     \begin{subfigure}{.8\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex//fig/sphere3_zoom.png}
+        \includegraphics[width=\textwidth]{fig/sphere3_zoom.png}
     \end{subfigure}%
     \\
     \begin{subfigure}{.4\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex//fig/drag.png}
+        \includegraphics[width=\textwidth]{fig/drag.png}
     \end{subfigure}
     \caption{Sphere flow vortex wake and drag coefficient at $Re = UR/\nu= 3700$ with a resolution of 44 cells per radius. (top) Wake visualized by a volumetric rendering of $|\omega|R/U$ at time $tU/R=53$ with the full $3.6D\times1.5D\times1.5D$ domain shown. (bottom) Drag coefficient history for three domain sizes compared to the DNS (dashed) and LES (dotted) results of \cite{Rodriguez2011Direct3700, Yun2006VorticalNumbers}.}
     \label{fig:sphere}
@@ -364,7 +364,7 @@ Next, we study the accuracy of the new Biot-Savart conditions on flow cases with
 
 The flow around a sphere is used to validate the coupled momentum-Biot-Savart update for developed 3D flows. A sphere of radius $R$ is immersed in a viscous incompressible flow. The Reynolds number is set to $Re=UR/\nu=3700$, we use a resolution of 44 cells per radius and use a domain size of $2.5C \times C \times C$ cells varied over $C\in[128,192,256]$. The flow is impulsively started from rest to a uniform velocity $U$. 
 
-We perform the simulations until convective time $tU/R=200$ and Figure~\ref{fig:sphere} shows the drag coefficient when using the Biot-Savart boundary condition is insensitive to the domain size - even for domains only 50\% wider than the sphere diameter. The averaged drag over the last 100 convective time for all blockage ratios compares favorably to the DNS and LES simulation results obtained in \cite{Yun2006VorticalNumbers, Rodriguez2011Direct3700}. 
+We perform the simulations until convective time $tU/R=200$ and Figure~\ref{fig:sphere} shows the drag coefficient when using the Biot-Savart boundary condition is insensitive to the domain size - even for domains only 50\% wider than the sphere diameter. The drag averaged over the last 100 convective times is $\overline{C_D}=0.39$, $0.37$ and $0.37$ for blockage ratios $\pi R^2/A=0.37$, $0.17$ and $0.09$, which compares favorably to the DNS ($\overline{C_D}=0.394$) and LES ($\overline{C_D}=0.355$) results obtained in \cite{Rodriguez2011Direct3700, Yun2006VorticalNumbers}.
 
 \subsection{Wake behind a heaving foil}
 
@@ -380,24 +380,24 @@ where $h_0/L=0.5$ is the non-dimensional amplitude, and the frequency is $f = \t
     \centering
     \begin{subfigure}{.48\textwidth}
         \centering
-        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{tex//fig/Deflected_wake_snap.png}
+        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{fig/Deflected_wake_snap.png}
         \caption{Reflection ($30L\times20L$)}
     \end{subfigure}%
     \hspace{0.1cm}
     \begin{subfigure}{.48\textwidth}
         \centering
-        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{tex/fig/Deflected_wake_snap_small.png}
+        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{fig/Deflected_wake_snap_small.png}
         \caption{Reflection ($30L\times20L$) - near wake}
     \end{subfigure}
     \begin{subfigure}{.48\textwidth}
         \centering
-        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{tex/fig/Deflected_wake_snap_BS.png}
+        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{fig/Deflected_wake_snap_BS.png}
         \caption{Biot-Savart ($6L\times4L$)}
     \end{subfigure}%
     \hspace{0.1cm}
     \begin{subfigure}{.48\textwidth}
         \centering
-        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{tex//fig/Deflected_wake_snap_BS_2x.png}
+        \includegraphics[trim={2.8cm 2cm 4cm 2cm},clip,width=\textwidth]{fig/Deflected_wake_snap_BS_2x.png}
         \caption{Biot-Savart ($12L\times8L$)}
     \end{subfigure}
     \caption{Snapshot of the deflected wake behind an elliptical foil at $\text{St}=0.6$ and $\text{Re}=100$ for an amplitude to chord ratio $h_0/L=0.5$. The upper left panel $(a)$ shows the far wake obtained with the reflective boundary condition in a large domain, the upper right panel $(b)$ shows a zoom onto the airfoil and the near wake, the bottom left $(c)$ panel shows the entire (small) Biot-Savart domain used for the computation and the lower right panel $(d)$ shows the entire (larger) Biot-Savart domain. Vorticity is shown as 10 equally spaced isocontours in the interval $\omega L/U \pm 10$.}
@@ -408,11 +408,11 @@ where $h_0/L=0.5$ is the non-dimensional amplitude, and the frequency is $f = \t
     \centering
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[trim={0 0 0 0},clip,width=\textwidth]{tex/fig/CL_mean_deflected_wake.png}
+        \includegraphics[trim={0 0 0 0},clip,width=\textwidth]{fig/CL_mean_deflected_wake.png}
     \end{subfigure}%
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[trim={0 0 0 0},clip,width=\textwidth]{tex/fig/poincare_deflected_wake.png}
+        \includegraphics[trim={0 0 0 0},clip,width=\textwidth]{fig/poincare_deflected_wake.png}
     \end{subfigure}
     \caption{(left) Mean lift force acting on the airfoil at $\text{Re}=100$, for a range of Strouhal numbers for the Biot-Savart and the reflective boundary condition  and (right) \emph{Poincar\'e} map of the lift and drag coefficients for $\text{St}=0.6$}
     \label{fig:deflected_wake_2}
@@ -541,22 +541,22 @@ where $J_0$ and $J_1$ are the zeroth and first Bessel functions of the first kin
 % \begin{figure}
     % \begin{subfigure}{.5\textwidth}
     %       \centering
-    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{tex/fig/lamb_dipole_error_dist2.png}
+    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{fig/lamb_dipole_error_dist2.png}
     %       \caption{$S=2$}
     % \end{subfigure}%
     % \begin{subfigure}{.5\textwidth}
     %       \centering
-    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{tex/fig/lamb_dipole_error_dist8.png}
+    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{fig/lamb_dipole_error_dist8.png}
     %       \caption{$S=8$}
     % \end{subfigure}
     % \begin{subfigure}{.5\textwidth}
     %       \centering
-    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{tex/fig/lamb_dipole_error_dist32.png}
+    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{fig/lamb_dipole_error_dist32.png}
     %       \caption{$S=32$}
     % \end{subfigure}%
     % \begin{subfigure}{.5\textwidth}
     %       \centering
-    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{tex/fig/lamb_dipole_error_dist128.png}
+    %       \includegraphics[trim={2cm 1cm 0cm 1cm},clip,width=\linewidth]{fig/lamb_dipole_error_dist128.png}
     %       \caption{$S=128$}
     % \end{subfigure}
 %     \centering
@@ -574,11 +574,11 @@ R$. This error depends primarily on the distance from the vortex, Fig.~\ref{fig:
     \centering
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex//fig/lamb_dipole_error_dists.png}
+        \includegraphics[width=\textwidth]{fig/lamb_dipole_error_dists.png}
     \end{subfigure}%
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex/fig/lamb_dipole_speedup.png}
+        \includegraphics[width=\textwidth]{fig/lamb_dipole_speedup.png}
     \end{subfigure}
     \caption{Maximum error in the reconstructed velocity field generated by a 2D \emph{Lamb-Chaplygin} vortex dipole for various kernel sizes and distances from the vortex core (left). Corresponding speed-up obtained by reducing the kernel size for the multilevel algorithm (right). The mesh has dimensions $[2^8,2^8]$.}
     \label{fig:error_lamb_2}
@@ -589,11 +589,11 @@ R$. This error depends primarily on the distance from the vortex, Fig.~\ref{fig:
 %     \centering
 %     \begin{subfigure}{.5\textwidth}
 %         \centering
-%         \includegraphics[width=\textwidth]{tex//fig/lamb_dipole_scaling.png}
+%         \includegraphics[width=\textwidth]{fig/lamb_dipole_scaling.png}
 %     \end{subfigure}%
 %     \begin{subfigure}{.5\textwidth}
 %         \centering
-%         \includegraphics[width=\textwidth]{tex/fig/lamb_dipole_scaling_2.png}
+%         \includegraphics[width=\textwidth]{fig/lamb_dipole_scaling_2.png}
 %     \end{subfigure}
 %     \caption{}
 % \end{figure}
@@ -619,11 +619,11 @@ The multilevel error decreases extremely quickly as $\tilde S$ increases for thr
     \centering
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex//fig/Hill_error_dists.png}
+        \includegraphics[width=\textwidth]{fig/Hill_error_dists.png}
     \end{subfigure}%
     \begin{subfigure}{.5\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{tex/fig/Hill_speedup_dists.png}
+        \includegraphics[width=\textwidth]{fig/Hill_speedup_dists.png}
     \end{subfigure}
     \caption{Maximum error in the reconstructed velocity field generated by a 3D \emph{Hill} vortex for various kernel sizes and distances from the vortex core (left). Corresponding speed-up obtained by reducing the kernel size for the multilevel algorithm (right). The mesh has dimensions $[2^8,2^8,2^8]$.}
     \label{fig:error_hill_3}

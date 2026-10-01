@@ -5,6 +5,7 @@ function circ(D,m;Re=550,U=1,shift=0,makeSim=BiotSimulation,kwargs...)
 end
 
 using Plots,TypedTables
+figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
 function update_Ix!(sim,t₀)
     sim_step!(sim,t₀;remeasure=false)
     ωy = sim.flow.σ
@@ -65,6 +66,8 @@ end;
     sim = circ(D,m*D÷2,mem=CUDA.CuArray,makeSim=Simulation)
     [update_Ix!(sim,t₀) for t₀ in 0:0.02:6] |>Table |> with_drag
 end;
+using JLD2
+save_object("ImpCircle_results.jld2",Dict("biot"=>biot,"refl"=>refl,"Gillis"=>Gillis,"koumoutsakos"=>koumoutsakos))
 
 # Plot
 begin
@@ -84,16 +87,14 @@ begin
         plot!(dat.t,dat.Cd,c=rmap[i+1],ls=:dashdot,label="Reflection, D/W=1/$m2")
     end
 end; plot!(dpi=300,size=(550,340),ylabel="Drag coefficient",xlabel="convective time",ylims=(0,1.6),legend=:bottomright)
-savefig("ImpCircle_Cd.png")
+savefig(joinpath(figdir,"ImpCircle_Cd.png"))
 
 # Flow plot
-using Measures,Plots,PyPlot
 D=128
 sim = circ(D,2*D);sim_step!(sim,4,remeasure=false);
 ω = sim.flow.σ
 @inside ω[I] = WaterLily.curl(3,I,sim.flow.u)*sim.L/sim.U
-pyplot(dpi=300)
-contourf(clamp.(ω[inside(ω)],-6,6)';aspect_ratio=:equal,
+contourf(clamp.(ω[inside(ω)],-6,6)';aspect_ratio=:equal,dpi=300,
     framestyle=nothing,axis=nothing,size=(355,200),
     cbar=:top,c=:RdBu,clims=(-6,6),lw=0,levels=(union(-6:-1,1:6)))
-savefig("ImpCircle_4_vort.png")
+savefig(joinpath(figdir,"ImpCircle_4_vort.png"))
