@@ -32,7 +32,7 @@ end
 project!(ml::Tuple,mltargets::Tuple) = for l ∈ reverse(1:lastindex(ml)-1)
     project!(ml[l],ml[l+1],mltargets[l])
 end
-project!(a,b,targets) = @vecloop a[Ii] += project(Ii,b) over Ii ∈ targets
+project!(a,b,targets) = @loop a[Ii] += project(Ii,b) over Ii ∈ targets
 @fastmath function project(Ii::CartesianIndex{4},b)
     I,i,N = front(Ii),last(Ii),size_u(b)[1]
     dj,dk = step(I,i%3+1,N),step(I,(i+1)%3+1,N)
