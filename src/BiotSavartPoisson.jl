@@ -29,23 +29,24 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
+import WaterLily: div,diagonal,δv
 
 """
-    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w, t, tol=2e-3, itmx=32)
+    mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w::Int, t, tol=2e-3, itmx=32)
 
-Custom project method for Biot-Savart BCs. Solves for pressure with a multigrid V-cycle, applying biot_BC! to update the boundary velocity and residual at each iteration.
-Converges with the same criterion as `WaterLily.solver!`: `max|r| < tol` and `Σ|r|/N < tol/10`.
+Custom project method for Biot-Savart BCs, applying biot_BC! to update the boundary velocity and residual at each iteration.
 Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
 """
-function WaterLily.mom_project!(a::AbstractFlow{N,T}, b::BiotSavartPoisson, w, t, tol=2e-3,itmx=32) where {N,T}
-    dt = T(w)*a.Δt[end]; a.p .*= dt  # Scale p *= w*Δt
+function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int, t, tol=2e-3,itmx=32) where N
+    dt = a.Δt[end]/w; a.p .*= dt  # Scale p *= Δt/w
     U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
     fill_ω!(b.ω,a.u); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Apply domain BCs with fresh ω
 
     # Set residual
     top = b.ml.levels[1]; top.r .= 0
-    @inside top.r[I] = ifelse(top.iD[I]==0,0,WaterLily.div(I,a.u))
+    Dp = diagonal(top)  # Poisson matrix diagonal
+    @inside top.r[I] = ifelse(top.iD[I]==0,0,div(I,a.u)-δv(Dp,I)*div(I,a.V)) # flow divergence, not BDIM-ϵ stretching
     fix_resid!(top.r,a.u,b.tar[1]) # only fix on the boundaries
 
     r₁tol = WaterLily.l1n_tol(top, tol)
