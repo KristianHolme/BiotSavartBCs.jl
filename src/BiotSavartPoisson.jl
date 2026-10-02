@@ -20,6 +20,7 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     p    :: AbstractArray
     fmm  :: Bool
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array)
+        flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir=flow.perdir)
         ω  = MLArray(flow.f)   # top level aliases flow.f — no copy
         tar  = mem.(collect_targets(ω, nonbiotfaces))
