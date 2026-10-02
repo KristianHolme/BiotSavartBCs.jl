@@ -23,7 +23,7 @@ slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) :
 # Biot-Savart BCs
 function biotBC!(u,U,ml,targets,flat_targets;fmm=true,perdir=(),symmetry=())
     fmm ? fmmBC!(ml,targets,flat_targets,perdir,symmetry) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
-    @vecloop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
+    @loop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
 end
 @inline function _biotBC!(u,U,uᵥ,Ii)
     i,I = last(Ii),front(Ii); lower = I.I[i]==1
@@ -34,7 +34,7 @@ using Atomix
 # Biot-Savart BCs + residual update
 function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true,perdir=(),symmetry=())
     fmm ? fmmBC!(ml,targets,flat_targets,perdir,symmetry) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
-    @vecloop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
+    @loop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
     fix_resid!(r,u,targets[1])                                     # Fix u,r
 end
 @inline function _biotBC_r!(r,u,U,uᵥ,Ii)
@@ -45,7 +45,7 @@ end
 end
 
 # Correct the global residual s.t. sum(r)=0
-fix_resid!(r,u,targets,fix=sum(r)/length(targets)) = @vecloop _fix_resid!(r,u,fix,Ii) over Ii ∈ targets
+fix_resid!(r,u,targets,fix=sum(r)/length(targets)) = @loop _fix_resid!(r,u,fix,Ii) over Ii ∈ targets
 @inline function _fix_resid!(r,u,fix,Ii)
     I,i = front(Ii),last(Ii); lower = I.I[i]==1
     u[I+ (lower ? δ(i,I) : zero(I)),i] += fix*(lower ? 1 : -1)
