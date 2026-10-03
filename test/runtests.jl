@@ -190,7 +190,7 @@ end
     # Slab test: a z-uniform Lamb dipole in a z-periodic domain must induce the 2D velocity
     N = 2+2^5; u₀ = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u₀)
     u = zeros(Float32,N,N,10,3); for k in 1:10; u[:,:,k,1:2] .= u₀; end
-    ω = MLArray(zeros(Float32,N,N,10,3),3); tar = collect_targets(ω,(3,-3)); ftar = flatten_targets(tar)
+    ω = MLArray(zeros(Float32,N,N,10,3),(3,)); tar = collect_targets(ω,(3,-3)); ftar = flatten_targets(tar)
     fill_ω!(ω,u,(3,)); BC!(u,(1,0,0)); biotBC!(u,(1,0,0),ω,tar,ftar;perdir=(3,))
     Δu = u[:,:,2:end-1,1:2] .- reshape(u₀,N,N,1,2)
     @test maximum(abs,Δu[2:end,2:end-1,:,1])<0.04 && maximum(abs,Δu[2:end-1,2:end,:,2])<0.02 # as good as 2D

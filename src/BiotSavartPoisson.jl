@@ -21,10 +21,9 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     fmm  :: Bool
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array)
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
-        perdir = flow.perdir; isempty(perdir) || (fmm && ndims(flow.p)==3 && length(perdir)==1) ||
-            throw(ArgumentError("periodic Biot-Savart BCs require fmm=true, 3D and a single periodic direction"))
+        perdir = flow.perdir
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir)
-        ω  = MLArray(flow.f,perdir...)   # top level aliases flow.f — no copy
+        ω  = MLArray(flow.f,perdir)   # top level aliases flow.f — no copy
         tar  = mem.(collect_targets(ω, (nonbiotfaces...,perdir...,(-).(perdir)...)))
         ftar = flatten_targets(tar)
         p   = copy(flow.p)

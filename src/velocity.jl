@@ -22,7 +22,7 @@ slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) :
 
 # Biot-Savart BCs
 function biotBC!(u,U,ml,targets,flat_targets;fmm=true,perdir=())
-    fmm ? fmmBC!(ml,targets,flat_targets,perdir) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
+    fmm ? fmmBC!(ml,targets,flat_targets,perdir) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
     @vecloop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
 end
 @inline function _biotBC!(u,U,uᵥ,Ii)
@@ -33,7 +33,7 @@ end
 using Atomix
 # Biot-Savart BCs + residual update
 function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true,perdir=())
-    fmm ? fmmBC!(ml,targets,flat_targets,perdir) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
+    fmm ? fmmBC!(ml,targets,flat_targets,perdir) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
     @vecloop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
     fix_resid!(r,u,targets[1])                                     # Fix u,r
 end
