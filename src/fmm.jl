@@ -4,16 +4,16 @@ using StaticArrays
 @inline weighted(r::SVector{2,Float32},S::CartesianIndex{2},i,ω) = (-1)^i*@inbounds(ω[S,1]*r[i%2+1])/(r'*r)/π/2
 
 # Sum over sources at one interaction level
-Base.@propagate_inbounds @fastmath function interaction(ω,Ti::CartesianIndex{Np1},l,depth) where Np1
+Base.@propagate_inbounds @fastmath function interaction(ω,Ti::CartesianIndex{Np1},l,depth,d...) where Np1
     i,T,N = last(Ti),front(Ti),Np1-1
     x = shifted(T,i)+SVector{N,Float32}(T.I)
     val = zero(eltype(ω))
     domain = inside(size_u(ω)[1])
-    Router,Rinner = remaining(T,domain),close(T,domain)
+    Router,Rinner = remaining(T,domain,d...),close(T,domain,d...)
     l == depth && (Router = domain)
     if l == 1 # Top level
-        # Do everything remaining inside buff=2
-        for S in inR(Router,inside(size_u(ω)[1],buff=2))
+        # Do everything remaining in the source cells
+        for S in inR(Router,sources(size_u(ω)[1],d...))
             val += weighted(x-SVector{N,Float32}(S.I),S,i,ω)
         end
     elseif Rinner≠Router
@@ -25,9 +25,25 @@ end
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
 # Interaction on targets
-interaction!(ml,flat_targets) = @vecloop _interaction!(ml,lT) over lT ∈ flat_targets
-@inline _interaction!(ml,lT) = ((l,T) = lT; ml[l][T] = symmetry(ml[l],T,l,length(ml)))
+interaction!(ml,flat_targets,perdir=()) = @vecloop _interaction!(ml,lT,perdir) over lT ∈ flat_targets
+@inline _interaction!(ml,lT,perdir) = ((l,T) = lT; ml[l][T] = isempty(perdir) ? symmetry(ml[l],T,l,length(ml)) : periodic(ml[l],T,l,length(ml),perdir...))
 @inline symmetry(ω,T,args...) = interaction(ω,T,args...) # default is no applied symmetry
 
+# Periodic in d: the domain and its nearest images at every level, then the images |n|≥2 at
+# the coarsest level using Σ r/|r|³ ≈ ∫ r/|r|³ ds/L (the 2D kernel) minus the middle three periods
+Base.@propagate_inbounds @fastmath function periodic(ω,Ti,l,depth,d)
+    L = size(ω,d)-2; Δ = L*δ(d,Ti)
+    val = interaction(ω,Ti-Δ,l,depth,d)+interaction(ω,Ti,l,depth,d)+interaction(ω,Ti+Δ,l,depth,d)
+    l < depth && return val
+    i,T,e = last(Ti),front(Ti),SVector{3,Float32}(ntuple(k->k==d,3))
+    x = shifted(T,i)+SVector{3,Float32}(T.I)
+    for S in inside(size_u(ω)[1])
+        r = x-SVector{3,Float32}(S.I); ρ = r-r[d]*e; ρ² = ρ'*ρ
+        F(s) = (ρ*s/ρ²-e)/√(ρ²+s^2) # ∫ r/|r|³ ds
+        R = (2ρ/ρ²+F(r[d]-1.5f0L)-F(r[d]+1.5f0L))/L
+        val += permute((j,k)->ω[S,j]*R[k],i)/π/4
+    end; val
+end
+
 # Biot-Savart BC using FMM
-fmmBC!(ml,targets,flat_targets) = (interaction!(ml,flat_targets);project!(ml,targets))
+fmmBC!(ml,targets,flat_targets,perdir=()) = (interaction!(ml,flat_targets,perdir);project!(ml,targets))

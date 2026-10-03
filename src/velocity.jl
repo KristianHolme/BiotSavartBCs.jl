@@ -1,8 +1,8 @@
 # compute ω=∇×u excluding boundaries
 import WaterLily: permute,∂
-fill_ω!(ml::Tuple,u) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u); restrict!(ml))
-fill_ω!(ω::AbstractArray{<:Any,4},u) = @loop (ω[I,1] = centered_curl(1,I,u); ω[I,2] = centered_curl(2,I,u); ω[I,3] = centered_curl(3,I,u)) over I ∈ inside(size_u(ω)[1],buff=2)
-fill_ω!(ω::AbstractArray{<:Any,3},u) = @loop (ω[I,1] = centered_curl(3,I,u); ω[I,2] = zero(eltype(ω))) over I ∈ inside(size_u(ω)[1],buff=2)
+fill_ω!(ml::Tuple,u,perdir=()) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,perdir); restrict!(ml))
+fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=()) = @loop (ω[I,1] = centered_curl(1,I,u); ω[I,2] = centered_curl(2,I,u); ω[I,3] = centered_curl(3,I,u)) over I ∈ sources(size_u(ω)[1],perdir...)
+fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=()) = @loop (ω[I,1] = centered_curl(3,I,u); ω[I,2] = zero(eltype(ω))) over I ∈ sources(size_u(ω)[1],perdir...)
 Base.@propagate_inbounds centered_curl(i,I,u) = (j=i%3+1; k=(i+1)%3+1; ∂(k,j,I,u)-∂(j,k,I,u))
 
 # Incompressible & irrotational ghosts
@@ -21,8 +21,8 @@ end
 slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))
 
 # Biot-Savart BCs
-function biotBC!(u,U,ml,targets,flat_targets;fmm=true)
-    fmm ? fmmBC!(ml,targets,flat_targets) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
+function biotBC!(u,U,ml,targets,flat_targets;fmm=true,perdir=())
+    fmm ? fmmBC!(ml,targets,flat_targets,perdir) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
     @vecloop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
 end
 @inline function _biotBC!(u,U,uᵥ,Ii)
@@ -32,8 +32,8 @@ end
 
 using Atomix
 # Biot-Savart BCs + residual update
-function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true)
-    fmm ? fmmBC!(ml,targets,flat_targets) : treeBC!(ml,targets[1]) # Fill ml[targets]=uᵥ
+function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true,perdir=())
+    fmm ? fmmBC!(ml,targets,flat_targets,perdir) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
     @vecloop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
     fix_resid!(r,u,targets[1])                                     # Fix u,r
 end

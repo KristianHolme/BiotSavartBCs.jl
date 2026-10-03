@@ -9,17 +9,22 @@ using WaterLily: inside
 WaterLily.inside(ndims::NTuple{n};buff=1) where n = CartesianIndices(map(N->(1+buff:N-buff),ndims))
 inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
 inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
+# Cells holding vorticity: buff=2, except along a periodic direction d
+sources(ndims::NTuple{n},d...) where n = CartesianIndices(ntuple(k-> k∈d ? (2:ndims[k]-1) : (3:ndims[k]-2),n))
 
 # Local CartesianRange around a target T, with size specialized for 2D and 3D
 # note: These sources are too "close" to T for interaction at this level (unless we're at the top level)
 close(T::CartesianIndex{2}) = T-4oneunit(T):T+4oneunit(T)
 close(T::CartesianIndex{3}) = T-2oneunit(T):T+2oneunit(T)
+# periodic in d with period L: once the window spans the period the images act 2D, so use the 2D size in-plane
+close(T::CartesianIndex{3},d::Int,L::Int) = (w=CartesianIndex(ntuple(k->k==d || L>4 ? 2 : 4,3)); T-w:T+w)
 close(T,R) = inR(close(T),R)
+close(T,R,d) = inR(close(T,d,size(R,d)),R)
 inR(x,R) = max(first(x),first(R)):min(last(x),last(R))
 
 # CartesianRange corresponding to close(T,R) on the next coarser level
 # note: These are the only remaining contributions missing from the FMM sum (unless we're at the bottom level)
-remaining(T,R) = up(close(down(T),down(R)))
+remaining(T,R,d...) = up(close(CartesianIndex(fld.(T.I .+ 2,2)),down(R),d...))
 
 # Collect "targets" on the faces of a MLArray
 using Base.Iterators

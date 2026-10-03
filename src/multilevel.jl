@@ -1,12 +1,13 @@
 # Vector multi-level constructor (top level points to u, doesn't copy)
 using WaterLily: size_u
-function MLArray(u)
+function MLArray(u,perdir=())
     N,n = size_u(u)
+    isempty(perdir) || (n==3 && length(perdir)==1) || throw(ArgumentError("periodic Biot-Savart BCs require 3D and a single periodic direction"))
     levels = []
     I = CartesianIndex(ntuple(i-> i==1 ? 1 : 2, n))
     while true
         N = @. 1+N÷2; R = inside(N)
-        close(I,R) == R && break
+        close(I,R,perdir...) == R && break
         push!(levels,N)
         any(N .%2 .≠0) && break
     end
