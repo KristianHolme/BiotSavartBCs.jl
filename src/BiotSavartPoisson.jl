@@ -11,6 +11,7 @@ Fields:
 - `ftar` : flattened target list for kernel dispatch
 - `p`    : pressure solution accumulator
 - `fmm`  : use Fast Multi-level Method (`true`) or tree-sum (`false`)
+- `perdir`: periodic direction (from `flow.perdir`); those faces are not Biot-Savart targets
 """
 struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     ml   :: MultiLevelPoisson{T,S,V}
@@ -19,18 +20,21 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     ftar :: AbstractVector
     p    :: AbstractArray
     fmm  :: Bool
+    perdir :: Tuple
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array)
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
+        perdir = flow.perdir; isempty(perdir) || (fmm && ndims(flow.p)==3 && length(perdir)==1) ||
+            throw(ArgumentError("periodic Biot-Savart BCs require fmm=true, 3D and a single periodic direction"))
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir=flow.perdir)
-        ω  = MLArray(flow.f)   # top level aliases flow.f — no copy
-        tar  = mem.(collect_targets(ω, nonbiotfaces))
+        ω  = MLArray(flow.f,perdir...)   # top level aliases flow.f — no copy
+        tar  = mem.(collect_targets(ω, (nonbiotfaces...,perdir...,(-).(perdir)...)))
         ftar = flatten_targets(tar)
         p   = copy(flow.p)
-        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm)
+        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm,perdir)
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
-import WaterLily: div,diagonal,δv
+import WaterLily: div,diagonal,δv,perBC!
 
 """
     mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w::Int, t, tol=2e-3, itmx=32)
@@ -42,7 +46,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
     dt = a.Δt[end]/w; a.p .*= dt  # Scale p *= Δt/w
     U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
-    fill_ω!(b.ω,a.u); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Apply domain BCs with fresh ω
+    fill_ω!(b.ω,a.u,b.perdir); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,b.perdir) # Apply domain BCs with fresh ω
 
     # Set residual
     top = b.ml.levels[1]; top.r .= 0
@@ -63,13 +67,14 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
         end
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
-        fill_ω!(b.ω,a.u); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm) # Update BC+residual
+        fill_ω!(b.ω,a.u,b.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,b.perdir) # Update BC+residual
         r₁ = WaterLily.L₁(top); r∞ = WaterLily.L∞(top); nᵇ+=1
         @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
         (r₁<r₁tol && r∞<tol) && break
     end
     push!(b.ml.n,nᵖ)
     pflowBC!(a.u)     # Update ghost BCs (domain is already correct)
+    perBC!(a.u,b.perdir)
     a.p .= b.p ./ dt  # rescale pressure solution and copy to Flow
 end
 BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
@@ -77,6 +82,8 @@ BCTuple(f::Tuple,t,N) = f
 
 # Apply u-=μ₀∇p & accumulate p
 function project_update!(a::AbstractFlow, b::BiotSavartPoisson)
+    perBC!(a.p,b.perdir)
     @loop a.u[Ii] -= a.μ₀[Ii]*∂(last(Ii),front(Ii),a.p) over Ii ∈ inside_u(a.u)
+    perBC!(a.u,b.perdir) # periodic ghosts for fill_ω!
     b.p .+= a.p; fill!(a.p,0) # accumulate total pressure solution, reset increment
 end

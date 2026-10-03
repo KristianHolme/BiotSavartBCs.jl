@@ -65,7 +65,13 @@ sim_sym_walls = sym_square(96,mem=CuArray); # no difference!
 sim_step!(sim_sym_walls,2,remeasure=false) # BiotBCs now see reflected domain
 ```
 
-There is currently no way to implement mixed Biot-Savart & periodic boundary conditions and passing a `BiotSimulation(args...;perdir::NTuple)` will be ignored.
+#### Periodic boundary conditions
+
+A 3D simulation can be periodic in one direction, such as the span of a cylinder, by passing `perdir`:
+```julia
+sim = BiotSimulation((4D,2D,D),(1,0,0),D;body,ν=D/Re,perdir=(3,))
+```
+The periodic faces use standard periodic conditions and the remaining faces use Biot-Savart conditions which include the periodic images of the vorticity: the nearest image on either side is included in the FMM sum, and the rest are added in closed form at the coarsest level. Since the periodic vorticity induces a nearly 2D velocity field, the FMM uses the 2D-sized near-field window in-plane. This requires `fmm=true` and can't be combined with the symmetry hook above.
 
 ### Gallery
 

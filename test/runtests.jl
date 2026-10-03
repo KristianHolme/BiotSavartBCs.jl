@@ -186,3 +186,17 @@ end
         @show sim.pois.ml.n
     end
 end
+@testset "periodic BCs" begin
+    # Slab test: a z-uniform Lamb dipole in a z-periodic domain must induce the 2D velocity
+    N = 2+2^5; u₀ = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u₀)
+    u = zeros(Float32,N,N,10,3); for k in 1:10; u[:,:,k,1:2] .= u₀; end
+    ω = MLArray(zeros(Float32,N,N,10,3),3); tar = collect_targets(ω,(3,-3)); ftar = flatten_targets(tar)
+    fill_ω!(ω,u,(3,)); BC!(u,(1,0,0)); biotBC!(u,(1,0,0),ω,tar,ftar;perdir=(3,))
+    Δu = u[:,:,2:end-1,1:2] .- reshape(u₀,N,N,1,2)
+    @test maximum(abs,Δu[2:end,2:end-1,:,1])<0.04 && maximum(abs,Δu[2:end-1,2:end,:,2])<0.02 # as good as 2D
+
+    # Spanwise-periodic cylinder: no spurious spanwise velocity
+    sim = BiotSimulation((48,48,8),(1,0,0),24; body=AutoBody((x,t)->√sum(abs2,(x.-24)[1:2])-12),ν=24/1e3,perdir=(3,))
+    for _ in 1:6; sim_step!(sim;remeasure=false); end
+    @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3
+end

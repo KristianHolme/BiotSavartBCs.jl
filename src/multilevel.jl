@@ -1,12 +1,12 @@
 # Vector multi-level constructor (top level points to u, doesn't copy)
 using WaterLily: size_u
-function MLArray(u)
+function MLArray(u,d...)
     N,n = size_u(u)
     levels = []
     I = CartesianIndex(ntuple(i-> i==1 ? 1 : 2, n))
     while true
         N = @. 1+N÷2; R = inside(N)
-        close(I,R) == R && break
+        close(I,R,d...) == R && break
         push!(levels,N)
         any(N .%2 .≠0) && break
     end
