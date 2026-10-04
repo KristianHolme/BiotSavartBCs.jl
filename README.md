@@ -38,19 +38,19 @@ The resulting simulation update is very fast, especially with large 3D grids on 
 
 ### Mixed domain boundary conditions
 
-You can turn off the Biot-Savart update on a domain face by passing its index to the `nonbiotfaces` keyword (-3 is the negative z face, 2 is the positive y face, etc.). The normal velocity on that face then stays zero, giving a slip wall:
+The default behaviour for a `BiotSimulation` is to apply the Biot-Savart condition to the normal velocity on every face of the domain. You can deactivate the condition on specific domain faces by passing their indices to the `nonbiotfaces` keyword (-3 is the negative z face, 2 is the positive y face, etc.). The normal velocity on those faces then stays zero, giving a slip wall:
 ```julia
 sim = BiotSimulation((2N,N,N),(U,0,0),L;ν=U*2L/Re,body,nonbiotfaces=(-2,-3))
 ```
-To make those faces symmetry planes instead, pass `symmetry=(-2,-3)` in place of `nonbiotfaces`. The Biot-Savart boundaries then also include the influence of the image vorticity.
+To make those faces symmetry planes instead, pass `symmetry=(-2,-3)` in place of `nonbiotfaces` (not available with `perdir`). The Biot-Savart boundaries then also include the influence of the image vorticity.
 
 #### Periodic boundary conditions
 
-A 3D simulation can be periodic in one direction, such as the span of a cylinder, by passing `perdir`:
+A 3D `BiotSimulation` can be made periodic in one direction, such as the span of a cylinder, by passing `perdir`:
 ```julia
 sim = BiotSimulation((4D,2D,D),(1,0,0),D;body,ν=D/Re,perdir=(3,))
 ```
-The Biot-Savart boundaries account for the periodic images of the vorticity automatically.
+The Biot-Savart boundaries account for the (infinite) periodic images of the vorticity automatically.
 
 ### Gallery
 
