@@ -1,26 +1,18 @@
 """
-    BiotSavartPoisson <: WaterLily.AbstractPoisson
+    BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, symmetry=(), mem=Array) <: WaterLily.AbstractPoisson
 
-Custom Poisson type for Biot-Savart boundary conditions. Wraps a `MultiLevelPoisson`
-(which holds all pressure system state) and layers Biot-Savart state on top.
-
-Fields:
-- `ml`   : wrapped standard pressure solver
-- `ω`    : multi-level vorticity (top level aliases `flow.f`)
-- `tar`  : domain boundary target index arrays per multigrid level
-- `ftar` : flattened target list for kernel dispatch
-- `p`    : pressure solution accumulator
-- `fmm`  : use Fast Multi-level Method (`true`) or tree-sum (`false`)
-- `sym`  : symmetry plane faces
+Pressure solver for `flow` with Biot-Savart boundary conditions, for use in the `pois_ctor`
+of a `WaterLily.Simulation`. `BiotSimulation` sets this up for you and describes the keyword
+arguments. The fields are internal.
 """
 struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
-    ml   :: MultiLevelPoisson{T,S,V}
-    ω    :: NTuple
-    tar  :: NTuple
-    ftar :: AbstractVector
-    p    :: AbstractArray
-    fmm  :: Bool
-    sym  :: Tuple
+    ml   :: MultiLevelPoisson{T,S,V} # wrapped standard pressure solver
+    ω    :: NTuple         # multi-level vorticity (top level aliases `flow.f`)
+    tar  :: NTuple         # domain boundary target index arrays per multigrid level
+    ftar :: AbstractVector # flattened target list for kernel dispatch
+    p    :: AbstractArray  # pressure solution accumulator
+    fmm  :: Bool           # use Fast Multi-level Method (`true`) or tree-sum (`false`)
+    sym  :: Tuple          # symmetry plane faces
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, symmetry=())
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
         perdir = flow.perdir
