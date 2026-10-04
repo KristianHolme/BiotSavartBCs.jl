@@ -40,7 +40,7 @@ Reflect target `T` across the specified domain face of an array with dimensions 
 Returns a tuple containing the reflected target index and the contriution sign.
 """
 @inline function image(T::CartesianIndex,dims,face=2)
-    i = abs(face)
-    d = face>0 ? 2dims[i]-2T.I[i]-1 : 3-2T.I[i]
-    return T+d*WaterLily.δ(i,T), T.I[end]==i ? -1 : 1
+    i = abs(face); normal = T.I[end]==i
+    d = face>0 ? 2dims[i]-2T.I[i]-1 : 3-2T.I[i]+(normal && T.I[i]>1)
+    return T+d*WaterLily.δ(i,T), normal ? -1 : 1
 end

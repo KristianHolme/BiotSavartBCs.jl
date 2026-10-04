@@ -203,6 +203,14 @@ end
 
 using BiotSavartBCs: interaction,image,reflect
 @testset "symmetry" begin
+    # images mirror the target positions across the low (1.5) or high (N-½) face, and flip the normal component
+    @test image(CartesianIndex(10,5,1),(10,12,2),-1) == (CartesianIndex(-6,5,1),-1) # normal: x=9.5 ↦ -6.5
+    @test image(CartesianIndex(5,12,2),(10,12,2),-2) == (CartesianIndex(5,-8,2),-1) # normal: y=11.5 ↦ -8.5
+    @test image(CartesianIndex(5,1,2),(10,12,2),2) == (CartesianIndex(5,22,2),-1)   # normal: y=1.5 ↦ 21.5
+    @test image(CartesianIndex(5,1,6,2),(10,12,14,3),1) == (CartesianIndex(14,1,6,2),1)     # tangential: x=5 ↦ 14
+    @test image(CartesianIndex(5,6,14,3),(10,12,14,3),-3) == (CartesianIndex(5,6,-10,3),-1) # normal: z=13.5 ↦ -10.5
+    @test image(CartesianIndex(5,6,1,3),(10,12,14,3),3) == (CartesianIndex(5,6,26,3),-1)    # normal: z=1.5 ↦ 25.5
+
     # reflect matches a hand-written symmetry function, including the image of the image
     @inline function sym_yz(ω,T,args...)
         T₂,sgn₂ = image(T,size(ω),-2); T₃,sgn₃ = image(T,size(ω),-3); T₂₃,_ = image(T₃,size(ω),-2)
@@ -225,7 +233,7 @@ using BiotSavartBCs: interaction,image,reflect
     full = stats(BiotSimulation((m,m), (1,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4))
     sym,nosym = stats(sim),stats(half(nonbiotfaces=(-2,)))
     @show full,sym,nosym
-    @test all(abs.(sym .- full) .< 0.03)
+    @test all(abs.(sym .- full) .< 0.002)
     @test all(abs.(sym .- full) .< abs.(nosym .- full)/4) # images are essential
 
     @test_throws ArgumentError BiotSimulation((32,16), (1,0), 8; symmetry=(-2,), fmm=false)
