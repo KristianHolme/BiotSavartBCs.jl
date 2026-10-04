@@ -201,7 +201,7 @@ end
     @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3
 end
 
-using BiotSavartBCs: interaction,image,reflect
+using BiotSavartBCs: induced,image,reflect
 @testset "symmetry" begin
     # images mirror the target positions across the low (1.5) or high (N-½) face, and flip the normal component
     @test image(CartesianIndex(10,5,1),(10,12,2),-1) == (CartesianIndex(-6,5,1),-1) # normal: x=9.5 ↦ -6.5
@@ -214,7 +214,7 @@ using BiotSavartBCs: interaction,image,reflect
     # reflect matches a hand-written symmetry function, including the image of the image
     @inline function sym_yz(ω,T,args...)
         T₂,sgn₂ = image(T,size(ω),-2); T₃,sgn₃ = image(T,size(ω),-3); T₂₃,_ = image(T₃,size(ω),-2)
-        interaction(ω,T,args...)+sgn₃*interaction(ω,T₃,args...)+sgn₂*(interaction(ω,T₂,args...)+sgn₃*interaction(ω,T₂₃,args...))
+        induced(ω,T,args...)+sgn₃*induced(ω,T₃,args...)+sgn₂*(induced(ω,T₂,args...)+sgn₃*induced(ω,T₂₃,args...))
     end
     N = 2+3*2^3; U=(0,0,1)
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
