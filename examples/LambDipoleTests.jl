@@ -1,4 +1,5 @@
 using WaterLily,BiotSavartBCs,StaticArrays
+using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!
 using SpecialFunctions,ForwardDiff,Plots
 figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
 function lamb_dipole(N;D=3N/4,U=1)

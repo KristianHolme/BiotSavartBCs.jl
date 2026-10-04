@@ -5,12 +5,10 @@ using WaterLily
 include("ka.jl")
 include("geom.jl")
 include("multilevel.jl")
-export MLArray,collect_targets,flatten_targets
 
 include("fmm.jl")
 include("tree.jl")
 include("velocity.jl")
-export fill_ω!,biotBC!,pflowBC!
 
 include("BiotSavartPoisson.jl")
 export BiotSavartPoisson
@@ -23,7 +21,7 @@ Returns a plain `WaterLily.Simulation` with a `BiotSavartPoisson` solver injecte
 
 - `fmm`: Use the Fast Multi-level Method (`true`, default) or tree-sum (`false`).
 - `nonbiotfaces`: tuple of face indices to exclude from Biot-Savart BCs (e.g. `(-2,)` for the negative-y face).
-- `symmetry`: tuple of symmetry plane faces (e.g. `(-2,)`), which are added to `nonbiotfaces`. Or a custom function `symmetry(ω,T,args...)` adding image influences, in which case the faces must be set in `nonbiotfaces`.
+- `symmetry`: tuple of face indices that are symmetry planes (e.g. `(-2,)`). Like `nonbiotfaces` these faces don't get Biot-Savart BCs, but the images of the vorticity across them are included.
 - `mem`: memory backend (`Array`, `CuArray`, etc.).
 
 See: `Using Biot-Savart boundary conditions for unbounded external flow on Eulerian meshes,

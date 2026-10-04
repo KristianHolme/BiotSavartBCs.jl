@@ -24,12 +24,11 @@ Base.@propagate_inbounds @fastmath function induced(ω,Ti::CartesianIndex{Np1},l
 end
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
-# Induced velocity on targets, using `symmetry(ω,T,args...)` to add image influences (default is no images)
-induced!(ml,flat_targets,perdir=(),symmetry=induced) = @vecloop _induced!(ml,lT,perdir,symmetry) over lT ∈ flat_targets
-@inline _induced!(ml,lT,perdir,symmetry) = ((l,T) = lT; ml[l][T] = isempty(perdir) ? symmetry(ml[l],T,l,length(ml)) : periodic(ml[l],T,l,length(ml),perdir...))
+# Induced velocity on targets, including the images across the `symmetry` faces
+induced!(ml,flat_targets,perdir=(),symmetry=()) = @vecloop _induced!(ml,lT,perdir,symmetry) over lT ∈ flat_targets
+@inline _induced!(ml,lT,perdir,symmetry) = ((l,T) = lT; ml[l][T] = isempty(perdir) ? images(ml[l],T,symmetry,l,length(ml)) : periodic(ml[l],T,l,length(ml),perdir...))
 
 # Symmetry planes on domain `faces`: sum the velocity induced at the target and all of its images
-reflect(faces) = (ω,T,args...)->images(ω,T,faces,args...)
 @inline images(ω,T,::Tuple{},args...) = induced(ω,T,args...)
 @inline function images(ω,T,faces,args...)
     T′,sgn = image(T,size(ω),first(faces))
@@ -53,4 +52,4 @@ Base.@propagate_inbounds @fastmath function periodic(ω,Ti,l,depth,d)
 end
 
 # Biot-Savart BC using FMM
-fmmBC!(ml,targets,flat_targets,perdir=(),symmetry=induced) = (induced!(ml,flat_targets,perdir,symmetry);project!(ml,targets))
+fmmBC!(ml,targets,flat_targets,perdir=(),symmetry=()) = (induced!(ml,flat_targets,perdir,symmetry);project!(ml,targets))

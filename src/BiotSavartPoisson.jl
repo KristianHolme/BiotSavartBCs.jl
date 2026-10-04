@@ -11,29 +11,27 @@ Fields:
 - `ftar` : flattened target list for kernel dispatch
 - `p`    : pressure solution accumulator
 - `fmm`  : use Fast Multi-level Method (`true`) or tree-sum (`false`)
-- `sym`  : function adding image influences to the FMM targets
+- `sym`  : symmetry plane faces
 """
-struct BiotSavartPoisson{T,S,V,F} <: AbstractPoisson{T,S,V}
+struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     ml   :: MultiLevelPoisson{T,S,V}
     ω    :: NTuple
     tar  :: NTuple
     ftar :: AbstractVector
     p    :: AbstractArray
     fmm  :: Bool
-    sym  :: F
+    sym  :: Tuple
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, symmetry=())
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
         perdir = flow.perdir
-        symmetry==() || (fmm && isempty(perdir)) || throw(ArgumentError("symmetry requires fmm=true and no periodic directions"))
-        if symmetry isa Tuple # reflect across the symmetry planes, which don't get Biot-Savart BCs
-            nonbiotfaces = (nonbiotfaces...,symmetry...); symmetry = reflect(symmetry)
-        end
+        isempty(symmetry) || (fmm && isempty(perdir)) || throw(ArgumentError("symmetry requires fmm=true and no periodic directions"))
+        all(f->0<abs(f)≤ndims(flow.p), symmetry) && allunique(abs.(symmetry)) || throw(ArgumentError("symmetry faces must be valid with at most one per direction"))
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir)
         ω  = MLArray(flow.f,perdir)   # top level aliases flow.f — no copy
-        tar  = mem.(collect_targets(ω, (nonbiotfaces...,perdir...,(-).(perdir)...)))
+        tar  = mem.(collect_targets(ω, (nonbiotfaces...,symmetry...,perdir...,(-).(perdir)...))) # no targets on these faces
         ftar = flatten_targets(tar)
         p   = copy(flow.p)
-        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀),typeof(symmetry)}(ml,ω,tar,ftar,p,fmm,symmetry)
+        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm,symmetry)
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
