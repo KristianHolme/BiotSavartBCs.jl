@@ -16,21 +16,22 @@ include("BiotSavartPoisson.jl")
 export BiotSavartPoisson
 
 """
-   BiotSimulation((WaterLily.Simulation inputs)...; fmm=true, nonbiotfaces=(), mem=Array)
+   BiotSimulation((WaterLily.Simulation inputs)...; fmm=true, nonbiotfaces=(), symmetry=(), mem=Array)
 
 Constructor for a WaterLily.Simulation that uses Biot-Savart boundary conditions.
 Returns a plain `WaterLily.Simulation` with a `BiotSavartPoisson` solver injected via `pois_ctor`.
 
 - `fmm`: Use the Fast Multi-level Method (`true`, default) or tree-sum (`false`).
 - `nonbiotfaces`: tuple of face indices to exclude from Biot-Savart BCs (e.g. `(-2,)` for the negative-y face).
+- `symmetry`: tuple of symmetry plane faces (e.g. `(-2,)`), which are added to `nonbiotfaces`. Or a custom function `symmetry(ω,T,args...)` adding image influences, in which case the faces must be set in `nonbiotfaces`.
 - `mem`: memory backend (`Array`, `CuArray`, etc.).
 
 See: `Using Biot-Savart boundary conditions for unbounded external flow on Eulerian meshes,
 https://arxiv.org/abs/2404.09034` and `WaterLily.Simulation`.
 """
-function BiotSimulation(args...; nonbiotfaces=(), fmm=true, mem=Array, kwargs...)
+function BiotSimulation(args...; nonbiotfaces=(), fmm=true, symmetry=(), mem=Array, kwargs...)
     Simulation(args...; mem,
-        pois_ctor=flow->BiotSavartPoisson(flow; nonbiotfaces, fmm, mem),
+        pois_ctor=flow->BiotSavartPoisson(flow; nonbiotfaces, fmm, mem, symmetry),
         kwargs...)
 end
 export BiotSimulation

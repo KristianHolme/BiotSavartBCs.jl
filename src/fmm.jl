@@ -24,10 +24,17 @@ Base.@propagate_inbounds @fastmath function interaction(ω,Ti::CartesianIndex{Np
 end
 shifted(T::CartesianIndex{N},i) where N = SVector{N,Float32}(ntuple(j-> j==i ? (T.I[i]==1 ? 0.5 : -0.5) : 0,N))
 
-# Interaction on targets
-interaction!(ml,flat_targets,perdir=()) = @vecloop _interaction!(ml,lT,perdir) over lT ∈ flat_targets
-@inline _interaction!(ml,lT,perdir) = ((l,T) = lT; ml[l][T] = isempty(perdir) ? symmetry(ml[l],T,l,length(ml)) : periodic(ml[l],T,l,length(ml),perdir...))
-@inline symmetry(ω,T,args...) = interaction(ω,T,args...) # default is no applied symmetry
+# Interaction on targets, using `symmetry(ω,T,args...)` to add image influences (default is no images)
+interaction!(ml,flat_targets,perdir=(),symmetry=interaction) = @vecloop _interaction!(ml,lT,perdir,symmetry) over lT ∈ flat_targets
+@inline _interaction!(ml,lT,perdir,symmetry) = ((l,T) = lT; ml[l][T] = isempty(perdir) ? symmetry(ml[l],T,l,length(ml)) : periodic(ml[l],T,l,length(ml),perdir...))
+
+# Symmetry planes on domain `faces`: sum the interactions of the target and all of its images
+reflect(faces) = (ω,T,args...)->images(ω,T,faces,args...)
+@inline images(ω,T,::Tuple{},args...) = interaction(ω,T,args...)
+@inline function images(ω,T,faces,args...)
+    T′,sgn = image(T,size(ω),first(faces))
+    images(ω,T,Base.tail(faces),args...)+sgn*images(ω,T′,Base.tail(faces),args...)
+end
 
 # Periodic in d: the domain and its nearest images at every level, then the images |n|≥2 at
 # the coarsest level using Σ r/|r|³ ≈ ∫ r/|r|³ ds/L (the 2D kernel) minus the middle three periods
@@ -46,4 +53,4 @@ Base.@propagate_inbounds @fastmath function periodic(ω,Ti,l,depth,d)
 end
 
 # Biot-Savart BC using FMM
-fmmBC!(ml,targets,flat_targets,perdir=()) = (interaction!(ml,flat_targets,perdir);project!(ml,targets))
+fmmBC!(ml,targets,flat_targets,perdir=(),symmetry=interaction) = (interaction!(ml,flat_targets,perdir,symmetry);project!(ml,targets))

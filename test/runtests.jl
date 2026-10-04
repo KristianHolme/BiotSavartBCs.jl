@@ -200,3 +200,34 @@ end
     for _ in 1:6; sim_step!(sim;remeasure=false); end
     @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3
 end
+
+using BiotSavartBCs: interaction,image,reflect
+@testset "symmetry" begin
+    # reflect matches a hand-written symmetry function, including the image of the image
+    @inline function sym_yz(ω,T,args...)
+        T₂,sgn₂ = image(T,size(ω),-2); T₃,sgn₃ = image(T,size(ω),-3); T₂₃,_ = image(T₃,size(ω),-2)
+        interaction(ω,T,args...)+sgn₃*interaction(ω,T₃,args...)+sgn₂*(interaction(ω,T₂,args...)+sgn₃*interaction(ω,T₂₃,args...))
+    end
+    N = 2+3*2^3; U=(0,0,1)
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
+    ω = MLArray(zeros(Float32,N,N,N,3)); tar = collect_targets(ω,(-2,-3)); ftar = flatten_targets(tar)
+    fill_ω!(ω,u); u₁,u₂ = copy(u),copy(u)
+    biotBC!(u₁,U,ω,tar,ftar;symmetry=reflect((-2,-3)))
+    biotBC!(u₂,U,ω,tar,ftar;symmetry=sym_yz)
+    @test u₁ ≈ u₂
+
+    # Half-domain circle with a symmetry plane on y=0 matches the full-domain circle
+    D = 64; m = 2D
+    stats(sim) = (sim_step!(sim;remeasure=false); [maximum(sim.flow.u[:,:,1]),maximum(abs,sim.flow.u[:,:,2]),minimum(sim.flow.u[1,:,1])])
+    half(;kw...) = BiotSimulation((m,m÷2), (1,0), D; body=AutoBody((x,t)->√((x[1]-m/2)^2+x[2]^2)-D/2),ν=D/1e4,kw...)
+    sim = half(symmetry=(-2,))
+    @test !any(Ti->Ti.I[2]==1 && last(Ti)==2, sim.pois.tar[1]) # symmetry plane has no Biot-Savart targets
+    full = stats(BiotSimulation((m,m), (1,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4))
+    sym,nosym = stats(sim),stats(half(nonbiotfaces=(-2,)))
+    @show full,sym,nosym
+    @test all(abs.(sym .- full) .< 0.03)
+    @test all(abs.(sym .- full) .< abs.(nosym .- full)/4) # images are essential
+
+    @test_throws ArgumentError BiotSimulation((32,16), (1,0), 8; symmetry=(-2,), fmm=false)
+    @test_throws ArgumentError BiotSimulation((32,16,8), (1,0,0), 8; symmetry=(-2,), perdir=(3,))
+end

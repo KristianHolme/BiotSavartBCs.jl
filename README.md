@@ -42,7 +42,7 @@ You can turn off the Biot-Savart update on a domain face by passing its index to
 ```julia
 sim = BiotSimulation((2N,N,N),(U,0,0),L;ν=U*2L/Re,body,nonbiotfaces=(-2,-3))
 ```
-To make that face a symmetry plane instead, the Biot-Savart boundaries also need the influence of the image vorticity, which you add by overwriting the `symmetry` function. See [`examples/square_sym.jl`](examples/square_sym.jl) for both cases.
+To make those faces symmetry planes instead, pass `symmetry=(-2,-3)` in place of `nonbiotfaces`. The Biot-Savart boundaries then also include the influence of the image vorticity.
 
 #### Periodic boundary conditions
 
