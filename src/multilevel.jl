@@ -1,5 +1,7 @@
 # Vector multi-level constructor (top level points to u, doesn't copy)
 using WaterLily: size_u
+# @loop takes its backend from the first variable of the loop body, which can be a multi-level tuple
+WaterLily.get_backend(ml::NTuple) = WaterLily.get_backend(first(ml))
 function MLArray(u,perdir=())
     N,n = size_u(u)
     isempty(perdir) || (n==3 && length(perdir)==1) || throw(ArgumentError("periodic Biot-Savart BCs require 3D and a single periodic direction"))
