@@ -1,6 +1,7 @@
 # BiotSavartBCs
 
 [![Build Status](https://github.com/WaterLily-jl/BiotSavartBCs.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/WaterLily-jl/BiotSavartBCs.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![codecov](https://codecov.io/gh/WaterLily-jl/BiotSavartBCs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/WaterLily-jl/BiotSavartBCs.jl)
 
 ![disk](docs/disk_high_re.png)
 
