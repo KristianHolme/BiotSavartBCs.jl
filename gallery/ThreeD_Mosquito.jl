@@ -9,13 +9,6 @@ vtk_lambda(a::AbstractSimulation) = (@inside a.flow.σ[I] = WaterLily.λ₂(I, a
 # starting  from rest
 WaterLily.CFL(a::Flow) = WaterLily.CFL(a;Δt_max=0.5)
 
-# overwrite to apply symmetric BiotBCs
-import BiotSavartBCs: interaction,image,symmetry
-@inline function symmetry(ω,T,args...)
-    T⁺,sgn = image(T,size(ω),-2) # image target & sign
-    return interaction(ω,T,args...)+sgn*interaction(ω,T⁺,args...)
-end
-
 # make simulation following Dickinson's setup
 function Dickinson(L=64;U=1,Re=5e2,ε=0.5f0,thk=2ε+√3,AR=2,mem=Array,T=Float32)
 
@@ -42,7 +35,7 @@ function Dickinson(L=64;U=1,Re=5e2,ε=0.5f0,thk=2ε+√3,AR=2,mem=Array,T=Float3
     body = ellipsoid ∩ upper_lower # intersection of sets
 
     # Return initialized simulation, the y=0 plane is the symmetry plane
-    return BiotSimulation((3L,2L,3L),(0,0,0),L;ν=U*L/Re,U,body,mem,T,nonbiotfaces=(-2,))
+    return BiotSimulation((3L,2L,3L),(0,0,0),L;ν=U*L/Re,U,body,mem,T,symmetry=(-2,))
 end
 
 # make a simulation

@@ -3,6 +3,7 @@ using Test
 using WaterLily
 
 using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
+using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!,pflowBC!
 @testset "util.jl" begin
     a = zeros(Int,(4,4,6,3))
     @vecloop a[I] += 1 over I in inside_u(a,buff=2)
@@ -199,4 +200,42 @@ end
     sim = BiotSimulation((48,48,8),(1,0,0),24; body=AutoBody((x,t)->√sum(abs2,(x.-24)[1:2])-12),ν=24/1e3,perdir=(3,))
     for _ in 1:6; sim_step!(sim;remeasure=false); end
     @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3
+end
+
+using BiotSavartBCs: induced,image,images
+@testset "symmetry" begin
+    # images mirror the target positions across the low (1.5) or high (N-½) face, and flip the normal component
+    @test image(CartesianIndex(10,5,1),(10,12,2),-1) == (CartesianIndex(-6,5,1),-1) # normal: x=9.5 ↦ -6.5
+    @test image(CartesianIndex(5,12,2),(10,12,2),-2) == (CartesianIndex(5,-8,2),-1) # normal: y=11.5 ↦ -8.5
+    @test image(CartesianIndex(5,1,2),(10,12,2),2) == (CartesianIndex(5,22,2),-1)   # normal: y=1.5 ↦ 21.5
+    @test image(CartesianIndex(5,1,6,2),(10,12,14,3),1) == (CartesianIndex(14,1,6,2),1)     # tangential: x=5 ↦ 14
+    @test image(CartesianIndex(5,6,14,3),(10,12,14,3),-3) == (CartesianIndex(5,6,-10,3),-1) # normal: z=13.5 ↦ -10.5
+    @test image(CartesianIndex(5,6,1,3),(10,12,14,3),3) == (CartesianIndex(5,6,26,3),-1)    # normal: z=1.5 ↦ 25.5
+
+    # images matches a hand-written sum, including the image of the image
+    @inline function sym_yz(ω,T,args...)
+        T₂,sgn₂ = image(T,size(ω),-2); T₃,sgn₃ = image(T,size(ω),-3); T₂₃,_ = image(T₃,size(ω),-2)
+        induced(ω,T,args...)+sgn₃*induced(ω,T₃,args...)+sgn₂*(induced(ω,T₂,args...)+sgn₃*induced(ω,T₂₃,args...))
+    end
+    N = 2+3*2^3
+    u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
+    ω = MLArray(zeros(Float32,N,N,N,3)); fill_ω!(ω,u)
+    ftar = flatten_targets(collect_targets(ω,(-2,-3)))
+    @test all(((l,T),)->images(ω[l],T,(-2,-3),l,length(ω)) ≈ sym_yz(ω[l],T,l,length(ω)), ftar)
+
+    # Half-domain circle with a symmetry plane on y=0 matches the full-domain circle
+    D = 64; m = 2D
+    stats(sim) = (sim_step!(sim;remeasure=false); [maximum(sim.flow.u[:,:,1]),maximum(abs,sim.flow.u[:,:,2]),minimum(sim.flow.u[1,:,1])])
+    half(;kw...) = BiotSimulation((m,m÷2), (1,0), D; body=AutoBody((x,t)->√((x[1]-m/2)^2+x[2]^2)-D/2),ν=D/1e4,kw...)
+    sim = half(symmetry=(-2,))
+    @test !any(Ti->Ti.I[2]==1 && last(Ti)==2, sim.pois.tar[1]) # symmetry plane has no Biot-Savart targets
+    full = stats(BiotSimulation((m,m), (1,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=D/1e4))
+    sym,nosym = stats(sim),stats(half(nonbiotfaces=(-2,)))
+    @show full,sym,nosym
+    @test all(abs.(sym .- full) .< 0.002)
+    @test all(abs.(sym .- full) .< abs.(nosym .- full)/4) # images are essential
+
+    @test_throws ArgumentError BiotSimulation((32,16), (1,0), 8; symmetry=(-2,), fmm=false)
+    @test_throws ArgumentError BiotSimulation((32,16,8), (1,0,0), 8; symmetry=(-2,), perdir=(3,))
+    @test_throws ArgumentError BiotSimulation((32,16), (1,0), 8; symmetry=(-2,2))
 end

@@ -16,16 +16,7 @@ function jelly(p=5;Re=5e2,mem=Array,U=1,T=Float32)
     body =  sphere-plane
 
     # Return initialized simulation
-    BiotSimulation((n,n,4n),(0,0,-U),R;ν=U*R/Re,body,mem,T,nonbiotfaces=(-1,-2))
-end
-
-import BiotSavartBCs: interaction,image,symmetry
-@inline function symmetry(ω,T,args...) # overwrite to add image influences
-    T₁,sgn₁ = image(T,size(ω),-1)
-    T₂,sgn₂ = image(T,size(ω),-2)
-    T₁₂,_   = image(T₁,size(ω),-2)
-    return interaction(ω,T,args...)+sgn₁*interaction(ω,T₁,args...)+
-        sgn₂*(interaction(ω,T₂,args...)+sgn₁*interaction(ω,T₁₂,args...))
+    BiotSimulation((n,n,4n),(0,0,-U),R;ν=U*R/Re,body,mem,T,symmetry=(-1,-2))
 end
 
 using GLMakie,CUDA

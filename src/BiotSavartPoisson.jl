@@ -1,33 +1,29 @@
 """
-    BiotSavartPoisson <: WaterLily.AbstractPoisson
+    BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, symmetry=(), mem=Array) <: WaterLily.AbstractPoisson
 
-Custom Poisson type for Biot-Savart boundary conditions. Wraps a `MultiLevelPoisson`
-(which holds all pressure system state) and layers Biot-Savart state on top.
-
-Fields:
-- `ml`   : wrapped standard pressure solver
-- `ω`    : multi-level vorticity (top level aliases `flow.f`)
-- `tar`  : domain boundary target index arrays per multigrid level
-- `ftar` : flattened target list for kernel dispatch
-- `p`    : pressure solution accumulator
-- `fmm`  : use Fast Multi-level Method (`true`) or tree-sum (`false`)
+Pressure solver for `flow` with Biot-Savart boundary conditions, for use in the `pois_ctor`
+of a `WaterLily.Simulation`. `BiotSimulation` sets this up for you and describes the keyword
+arguments. The fields are internal.
 """
 struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
-    ml   :: MultiLevelPoisson{T,S,V}
-    ω    :: NTuple
-    tar  :: NTuple
-    ftar :: AbstractVector
-    p    :: AbstractArray
-    fmm  :: Bool
-    function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array)
+    ml   :: MultiLevelPoisson{T,S,V} # wrapped standard pressure solver
+    ω    :: NTuple         # multi-level vorticity (top level aliases `flow.f`)
+    tar  :: NTuple         # domain boundary target index arrays per multigrid level
+    ftar :: AbstractVector # flattened target list for kernel dispatch
+    p    :: AbstractArray  # pressure solution accumulator
+    fmm  :: Bool           # use Fast Multi-level Method (`true`) or tree-sum (`false`)
+    sym  :: Tuple          # symmetry plane faces
+    function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, symmetry=())
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
         perdir = flow.perdir
+        isempty(symmetry) || (fmm && isempty(perdir)) || throw(ArgumentError("symmetry requires fmm=true and no periodic directions"))
+        all(f->0<abs(f)≤ndims(flow.p), symmetry) && allunique(abs.(symmetry)) || throw(ArgumentError("symmetry faces must be valid with at most one per direction"))
         ml = MultiLevelPoisson(flow.p, flow.μ₀, flow.σ; perdir)
         ω  = MLArray(flow.f,perdir)   # top level aliases flow.f — no copy
-        tar  = mem.(collect_targets(ω, (nonbiotfaces...,perdir...,(-).(perdir)...)))
+        tar  = mem.(collect_targets(ω, (nonbiotfaces...,symmetry...,perdir...,(-).(perdir)...))) # no targets on these faces
         ftar = flatten_targets(tar)
         p   = copy(flow.p)
-        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm)
+        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm,symmetry)
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
@@ -43,7 +39,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
     dt = a.Δt[end]/w; a.p .*= dt  # Scale p *= Δt/w
     U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
     b.p .= 0; project_update!(a,b)                              # Project out initial μ₀∇p
-    fill_ω!(b.ω,a.u,a.perdir); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir) # Apply domain BCs with fresh ω
+    fill_ω!(b.ω,a.u,a.perdir); biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym) # Apply domain BCs with fresh ω
 
     # Set residual
     top = b.ml.levels[1]; top.r .= 0
@@ -64,7 +60,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
         end
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
-        fill_ω!(b.ω,a.u,a.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir) # Update BC+residual
+        fill_ω!(b.ω,a.u,a.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym) # Update BC+residual
         r₁ = WaterLily.L₁(top); r∞ = WaterLily.L∞(top); nᵇ+=1
         @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
         (r₁<r₁tol && r∞<tol) && break

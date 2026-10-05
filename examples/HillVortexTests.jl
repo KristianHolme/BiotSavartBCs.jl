@@ -1,4 +1,5 @@
 using WaterLily,BiotSavartBCs,StaticArrays
+using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!
 
 hill_vortex(N;D=3N/4) = function uλ(i,xyz)
     q = xyz .- (N-2)/2; x,y,z = q; r = √(q'*q); θ = acos(z/r); ϕ = atan(y,x)
