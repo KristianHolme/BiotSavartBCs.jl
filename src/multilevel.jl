@@ -15,15 +15,15 @@ function MLArray(u,perdir=())
     return (u,map(N->zeros_like_u(N,n),levels)...)
 end
 
-# Restrict(!) source data to a coarser level by pooling (summation)
-restrict!(ml::NTuple) = for l ∈ 2:lastindex(ml)
-    restrict!(ml[l],ml[l-1])
+# Restrict(!) the source data in the level-1 box `B` to the coarser levels by pooling (summation)
+restrict!(ml::NTuple,B=CartesianIndices(size_u(ml[1])[1])) = for l ∈ 2:lastindex(ml)
+    restrict!(ml[l],ml[l-1],B); B = down(B)
 end
 using WaterLily: @loop
-restrict!(a,b) = @loop a[Ii] = restrict(Ii,b) over Ii ∈ inside_u(a)
-@fastmath @inline function restrict(Ii::CartesianIndex,b)
+restrict!(a,b,B) = @loop a[Ii] = restrict(Ii,b,B) over Ii ∈ inside_u(a,down(B))
+@fastmath @inline function restrict(Ii::CartesianIndex,b,B)
     s = zero(eltype(b))
-    for J ∈ up(front(Ii))
+    for J ∈ inR(up(front(Ii)),B)
      s += @inbounds(b[J,last(Ii)])
     end; s
 end

@@ -9,6 +9,7 @@ using WaterLily: inside
 WaterLily.inside(ndims::NTuple{n};buff=1) where n = CartesianIndices(map(N->(1+buff:N-buff),ndims))
 inside_u(a;buff=1) = inside_u(size_u(a)[1],buff)
 inside_u(ndims::NTuple{n},buff) where n = CartesianIndices((map(N->(1+buff:N-buff),ndims)...,1:n))
+inside_u(a,B::CartesianIndices) = ((N,n) = size_u(a); CartesianIndices((inR(inside(N),B).indices...,1:n)))
 # Cells holding vorticity: buff=2, except along a periodic direction d
 sources(ndims::NTuple{n},d...) where n = CartesianIndices(ntuple(k-> k∈d ? (2:ndims[k]-1) : (3:ndims[k]-2),n))
 
