@@ -61,7 +61,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
         fill_ω!(b.ω,a.u,a.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym) # Update BC+residual
-        r₁ = WaterLily.L₁(top); r∞ = WaterLily.L∞(top); nᵇ+=1
+        r₁,r∞ = L₁∞(top.r); nᵇ+=1
         @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
         (r₁<r₁tol && r∞<tol) && break
     end
@@ -70,6 +70,8 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
     perBC!(a.u,a.perdir)
     a.p .= b.p ./ dt  # rescale pressure solution and copy to Flow
 end
+# L₁ and L∞ norms in one pass
+L₁∞(r::AbstractArray{T}) where T = mapreduce(x->(abs(x),abs(x)),((a,b),(c,d))->(a+c,max(b,d)),r;init=(zero(T),zero(T)))
 BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
 BCTuple(f::Tuple,t,N) = f
 
