@@ -1,9 +1,14 @@
-# compute ω=∇×u excluding boundaries
 import WaterLily: permute,∂
-fill_ω!(ml::Tuple,u,perdir=()) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,perdir); restrict!(ml))
-fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=()) = @loop (ω[I,1] = centered_curl(1,I,u); ω[I,2] = centered_curl(2,I,u); ω[I,3] = centered_curl(3,I,u)) over I ∈ sources(size_u(ω)[1],perdir...)
-fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=()) = @loop (ω[I,1] = centered_curl(3,I,u); ω[I,2] = zero(eltype(ω))) over I ∈ sources(size_u(ω)[1],perdir...)
-Base.@propagate_inbounds centered_curl(i,I,u) = (j=i%3+1; k=(i+1)%3+1; ∂(k,j,I,u)-∂(j,k,I,u))
+# compute ω=∇×(u-μ₀∇p) excluding boundaries (ω=∇×u without μ₀,p)
+fill_ω!(ml::Tuple,u,args...) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,args...); restrict!(ml))
+fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=(),μ₀=nothing,p=nothing) = @loop (ω[I,1] = centered_curl(1,I,u,μ₀,p); ω[I,2] = centered_curl(2,I,u,μ₀,p); ω[I,3] = centered_curl(3,I,u,μ₀,p)) over I ∈ sources(size_u(ω)[1],perdir...)
+fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=(),μ₀=nothing,p=nothing) = @loop (ω[I,1] = centered_curl(3,I,u,μ₀,p); ω[I,2] = zero(eltype(ω))) over I ∈ sources(size_u(ω)[1],perdir...)
+Base.@propagate_inbounds centered_curl(i,I,u,μ₀=nothing,p=nothing) = (j=i%3+1; k=(i+1)%3+1; ∂ₚ(k,j,I,u,μ₀,p)-∂ₚ(j,k,I,u,μ₀,p))
+# ∂uᵢ/∂xⱼ (i≠j) at the center of cell I, of u-μ₀∇p
+@fastmath @inline ∂ₚ(i,j,I,u,μ₀,p) = (uₚ(I+δ(j,I),i,u,μ₀,p)+uₚ(I+δ(j,I)+δ(i,I),i,u,μ₀,p)
+                                     -uₚ(I-δ(j,I),i,u,μ₀,p)-uₚ(I-δ(j,I)+δ(i,I),i,u,μ₀,p))/4
+@inline uₚ(I,i,u,μ₀,p) = @inbounds u[I,i]-μ₀[I,i]*∂(i,I,p)
+@inline uₚ(I,i,u,::Nothing,::Nothing) = @inbounds u[I,i]
 
 # Incompressible & irrotational ghosts
 function pflowBC!(u)
