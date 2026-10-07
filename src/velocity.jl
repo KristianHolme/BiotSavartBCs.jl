@@ -1,9 +1,41 @@
 # compute ω=∇×u excluding boundaries
 import WaterLily: permute,∂
-fill_ω!(ml::Tuple,u,perdir=()) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,perdir); restrict!(ml))
-fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=()) = @loop (ω[I,1] = centered_curl(1,I,u); ω[I,2] = centered_curl(2,I,u); ω[I,3] = centered_curl(3,I,u)) over I ∈ sources(size_u(ω)[1],perdir...)
-fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=()) = @loop (ω[I,1] = centered_curl(3,I,u); ω[I,2] = zero(eltype(ω))) over I ∈ sources(size_u(ω)[1],perdir...)
+"""
+    fill_ω!(ml,u,perdir=();fmm=false)
+
+Fill the multi-level vorticity `ml` with ω=∇×u in the `sources`. With `fmm=true`, level 1 is only
+filled within `layer` cells of the faces, where the FMM reads it, and keeps its old values elsewhere.
+Level 2 is then summed from `u` directly.
+"""
+function fill_ω!(ml::Tuple,u,perdir=();fmm=false)
+    ω,N = first(ml),size_u(first(ml))[1]
+    (fmm && length(ml)>1) || return (fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,perdir); restrict!(ml))
+    fill_ω!(ω,u,perdir,layer(N,perdir...))
+    curl_restrict!(ml[2],u,sources(N,perdir...)); restrict!(Base.tail(ml))
+end
+fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=(),w=size(ω)) = @loop nearface(I,ω,w) && (ω[I,1] = centered_curl(1,I,u); ω[I,2] = centered_curl(2,I,u); ω[I,3] = centered_curl(3,I,u)) over I ∈ sources(size_u(ω)[1],perdir...)
+fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=(),w=size(ω)) = @loop nearface(I,ω,w) && (ω[I,1] = centered_curl(3,I,u); ω[I,2] = zero(eltype(ω))) over I ∈ sources(size_u(ω)[1],perdir...)
+# I is within w[k] cells of a face normal to k
+@inline nearface(I::CartesianIndex{n},ω,w) where n = any(ntuple(k->I.I[k]≤w[k] || I.I[k]>size(ω,k)-w[k],n))
 Base.@propagate_inbounds centered_curl(i,I,u) = (j=i%3+1; k=(i+1)%3+1; ∂(k,j,I,u)-∂(j,k,I,u))
+
+# Depth of the level-1 sources read by the FMM (`remaining` of the face targets) normal to each face
+function layer(N::NTuple{n},d...) where n
+    R,S = inside(N),sources(N,d...)
+    T(k,s) = CartesianIndex(ntuple(j->j==k ? s : N[j]÷2,n))
+    ntuple(k->k∈d ? 0 : max(last(inR(remaining(T(k,1),R,d...),S)).I[k],
+                            N[k]+1-first(inR(remaining(T(k,N[k]),R,d...),S)).I[k]),n)
+end
+
+# Coarse-level vorticity a[I,i] = Σ ωᵢ over up(I) ∩ S, computed from u
+curl_restrict!(a::AbstractArray{<:Any,4},u,S) = @loop (a[I,1] = curl_restrict(1,I,u,S); a[I,2] = curl_restrict(2,I,u,S); a[I,3] = curl_restrict(3,I,u,S)) over I ∈ inside(size_u(a)[1])
+curl_restrict!(a::AbstractArray{<:Any,3},u,S) = @loop (a[I,1] = curl_restrict(3,I,u,S); a[I,2] = zero(eltype(a))) over I ∈ inside(size_u(a)[1])
+@inline function curl_restrict(i,I,u,S)
+    s = zero(eltype(u))
+    for J ∈ up(I)
+        J ∈ S && (s += @inbounds(centered_curl(i,J,u)))
+    end; s
+end
 
 # Incompressible & irrotational ghosts
 function pflowBC!(u)

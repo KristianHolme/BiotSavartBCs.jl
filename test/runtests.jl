@@ -239,3 +239,23 @@ using BiotSavartBCs: induced,image,images
     @test_throws ArgumentError BiotSimulation((32,16,8), (1,0,0), 8; symmetry=(-2,), perdir=(3,))
     @test_throws ArgumentError BiotSimulation((32,16), (1,0), 8; symmetry=(-2,2))
 end
+
+using BiotSavartBCs: fmmBC!
+@testset "fill_ω! layer" begin
+    # with fmm=true, level 1 is only filled near the faces (the rest is NaN here), which the FMM must not read
+    function uᵥ(u,ω,fmm;perdir=(),symmetry=())
+        ω[1] .= NaN; fill_ω!(ω,u,perdir;fmm)
+        tar = collect_targets(ω,(symmetry...,perdir...,(-).(perdir)...))
+        fmmBC!(ω,tar,flatten_targets(tar),perdir,symmetry); ω[1][tar[1]]
+    end
+    N = 2+3*2^3; u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
+    ω = MLArray(zeros(Float32,N,N,N,3))
+    @test uᵥ(u,ω,true) ≈ uᵥ(u,ω,false)
+    @test uᵥ(u,ω,true;symmetry=(-2,-3)) ≈ uᵥ(u,ω,false;symmetry=(-2,-3))
+    N = 2+2^5; u = Array{Float32}(undef,(N,N,2)); apply!(lamb_dipole(N),u)
+    ω = MLArray(zeros(Float32,N,N,2))
+    @test uᵥ(u,ω,true) ≈ uᵥ(u,ω,false)
+    u = zeros(Float32,N,N,N,3); for k in 1:N; apply!(lamb_dipole(N),@view u[:,:,k,1:2]); end
+    ω = MLArray(zeros(Float32,N,N,N,3),(3,))
+    @test uᵥ(u,ω,true;perdir=(3,)) ≈ uᵥ(u,ω,false;perdir=(3,))
+end
