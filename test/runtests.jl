@@ -202,6 +202,27 @@ end
     @test maximum(abs,sim.flow.u[:,:,:,3]) < 1e-3
 end
 
+using BiotSavartBCs: project_update!,Δω!,fmmBC!,sources
+@testset "incremental" begin
+    for (dims,D) in (((96,48),16),((32,24,24),8))
+        sim = BiotSimulation(dims, ntuple(i->i==1,length(dims)), D; body=AutoBody((x,t)->√sum(abs2,x .- D)-D/2), T=Float32)
+        a,b = sim.flow,sim.pois; U = ntuple(i->Float32(i==1),length(dims))
+        B,R = b.box[],sources(size(a.p)); out = filter(∉(B),R)
+        @test length(B) < length(R)/2
+        fill_ω!(b.ω,a.u); biotBC!(a.u,U,b.ω,b.tar,b.ftar); ω₀ = copy(b.ω[1])
+        a.p .= rand(Float32,size(a.p)); project_update!(a,b)
+        # ∇×(μ₀∇p)=0 where μ₀=1, so u-=μ₀∇p only changes ω inside the box
+        ω = MLArray(zero(a.f)); tar = collect_targets(ω); fill_ω!(ω,a.u)
+        @test maximum(abs,ω[1][out,:] .- ω₀[out,:]) < 1e-5
+        @test maximum(abs,ω[1][B,:] .- ω₀[B,:]) > 0.1
+        # so the FMM of Δω added to the stored boundary velocity matches the full FMM
+        Δω!(b.ω,a.u,B); fmmBC!(b.ω,b.tar,b.ftar,(),(),B); fill_ω!(b.ω[1],a.u,B)
+        fmmBC!(ω,tar,flatten_targets(tar))
+        @test maximum(abs,b.ω[1][R,:] .- ω[1][R,:]) < 1e-5
+        @test maximum(abs,b.ω[1][b.tar[1]] .- ω[1][tar[1]]) < 1e-5
+    end
+end
+
 using BiotSavartBCs: induced,image,images
 @testset "symmetry" begin
     # images mirror the target positions across the low (1.5) or high (N-½) face, and flip the normal component
@@ -221,7 +242,8 @@ using BiotSavartBCs: induced,image,images
     u = Array{Float32}(undef,(N,N,N,3)); apply!(hill_vortex(N),u)
     ω = MLArray(zeros(Float32,N,N,N,3)); fill_ω!(ω,u)
     ftar = flatten_targets(collect_targets(ω,(-2,-3)))
-    @test all(((l,T),)->images(ω[l],T,(-2,-3),l,length(ω)) ≈ sym_yz(ω[l],T,l,length(ω)), ftar)
+    B = CartesianIndices(size(ω[1])[1:3])
+    @test all(((l,T),)->images(ω[l],T,(-2,-3),l,length(ω),B) ≈ sym_yz(ω[l],T,l,length(ω),B), ftar)
 
     # Half-domain circle with a symmetry plane on y=0 matches the full-domain circle
     D = 64; m = 2D

@@ -13,6 +13,7 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     p    :: AbstractArray  # pressure solution accumulator
     fmm  :: Bool           # use Fast Multi-level Method (`true`) or tree-sum (`false`)
     sym  :: Tuple          # symmetry plane faces
+    box  :: Base.RefValue  # level-1 cells where ω changes with u-=μ₀∇p, see `ωbox`
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, symmetry=())
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
         perdir = flow.perdir
@@ -23,10 +24,10 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
         tar  = mem.(collect_targets(ω, (nonbiotfaces...,symmetry...,perdir...,(-).(perdir)...))) # no targets on these faces
         ftar = flatten_targets(tar)
         p   = copy(flow.p)
-        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm,symmetry)
+        new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,p,fmm,symmetry,Ref(ωbox(flow.μ₀,perdir)))
     end
 end
-WaterLily.update!(b::BiotSavartPoisson) = WaterLily.update!(b.ml)
+WaterLily.update!(b::BiotSavartPoisson) = (WaterLily.update!(b.ml); b.box[] = ωbox(b.ml.L,b.ml.perdir))
 import WaterLily: div,diagonal,δv,perBC!
 
 """
@@ -34,6 +35,7 @@ import WaterLily: div,diagonal,δv,perBC!
 
 Custom project method for Biot-Savart BCs, applying biot_BC! to update the boundary velocity and residual at each iteration.
 Note: a.p is used as the incremental pressure solution for each V-cycle, while b.p accumulates the total pressure solution.
+After the first update, ω only changes in `b.box`, so the FMM is applied to Δω and added to the boundary velocity.
 """
 function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int, t, tol=2e-3,itmx=32) where N
     dt = a.Δt[end]/w; a.p .*= dt  # Scale p *= Δt/w
@@ -60,7 +62,11 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
         end
         # Update the BCs with Biot-Savart (which requires updating u,p,ω) and repeat until convergence
         project_update!(a,b) # Update u,p
-        fill_ω!(b.ω,a.u,a.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym) # Update BC+residual
+        if b.fmm # Update BC+residual with Δω, then restore ω=∇×u in the box
+            Δω!(b.ω,a.u,b.box[]); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar,b.box[];a.perdir,symmetry=b.sym); fill_ω!(b.ω[1],a.u,b.box[])
+        else
+            fill_ω!(b.ω,a.u,a.perdir); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=false,a.perdir) # Update BC+residual
+        end
         r₁ = WaterLily.L₁(top); r∞ = WaterLily.L∞(top); nᵇ+=1
         @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
         (r₁<r₁tol && r∞<tol) && break
