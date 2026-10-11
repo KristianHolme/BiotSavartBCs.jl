@@ -23,4 +23,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 test = ["Test", "ForwardDiff", "SpecialFunctions"]
 
 [sources]
-WaterLily = {url = "https://github.com/WaterLily-jl/WaterLily.jl", rev = "face-loops"}
+WaterLily = {url = "https://github.com/WaterLily-jl/WaterLily.jl", rev = "master"}
