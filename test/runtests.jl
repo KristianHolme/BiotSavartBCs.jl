@@ -2,19 +2,20 @@ using BiotSavartBCs
 using Test
 using WaterLily
 
-using BiotSavartBCs: @vecloop,inside_u,restrict!,project!,down,front,step
+using WaterLily: @loop
+using BiotSavartBCs: inside_u,restrict!,project!,down,front,step
 using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!,pflowBC!
 @testset "util.jl" begin
     a = zeros(Int,(4,4,6,3))
-    @vecloop a[I] += 1 over I in inside_u(a,buff=2)
+    @loop a[I] += 1 over I in inside_u(a,buff=2)
     @test sum(a) == 0
-    @vecloop a[I] += 1 over I in inside_u(a)
+    @loop a[I] += 1 over I in inside_u(a)
     @test sum(a) == length(inside_u(a)) == 2*2*4*3
 
     a = zeros(Int,(10,10,18,3))
     ml=MLArray(a)
     @test length(ml)==3
-    @vecloop a[I] += 1 over I in inside_u(a)
+    @loop a[I] += 1 over I in inside_u(a)
     @test sum(first(ml)) == length(inside_u(a))
     restrict!(ml)
     @test sum(last(ml)) == length(inside_u(a))
@@ -29,7 +30,7 @@ using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!,pf
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
     
-    @vecloop ml[3][I] += 16 over I in tar[3]
+    @loop ml[3][I] += 16 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 4
 
@@ -39,7 +40,7 @@ using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!,pf
     a = zeros(Int,(34,34,2))
     ml=MLArray(a)
     @test length(ml)==3 # much bigger dis in 2D
-    @vecloop a[I] += 1 over I in inside_u(a)
+    @loop a[I] += 1 over I in inside_u(a)
     @test sum(first(ml)) == length(inside_u(a))
     restrict!(ml)
     @test sum(last(ml)) == length(inside_u(a))
@@ -50,7 +51,7 @@ using BiotSavartBCs: MLArray,collect_targets,flatten_targets,fill_ω!,biotBC!,pf
     T,i = front(Ti),last(Ti)
     @test CartesianIndex(down(T),i)==last(tar[3])
     
-    @vecloop ml[3][I] += 4 over I in tar[3]
+    @loop ml[3][I] += 4 over I in tar[3]
     project!(ml,tar)
     @test ml[2][Ti] == 2
 end
@@ -162,7 +163,7 @@ end
         sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,1])
         v_max = maximum(sim.flow.u[:,:,2])
-        u_inf = minimum(sim.flow.u[1,:,1])
+        u_inf = minimum(sim.flow.u[1,2:end-1,1]) # corner ghosts are not set
         @show fmm,u_max,v_max,u_inf
         @test abs(u_max-2)<0.02 # circle u_max = 2
         @test abs(v_max-1)<0.02 # circle v_max = 1
@@ -178,7 +179,7 @@ end
         sim_step!(sim;remeasure=false)
         u_max = maximum(sim.flow.u[:,:,:,1])
         v_max = maximum(sim.flow.u[:,:,:,2:3])
-        u_inf = minimum(sim.flow.u[2,:,:,1])
+        u_inf = minimum(sim.flow.u[2,2:end-1,2:end-1,1]) # edge ghosts are not set
         @show fmm,u_max,v_max,u_inf
         @test abs(u_max-1.5)<0.012    # u_max = 3/2
         @test abs(v_max-0.75)<0.035   # v,w_max = 3/4
@@ -225,7 +226,7 @@ using BiotSavartBCs: induced,image,images
 
     # Half-domain circle with a symmetry plane on y=0 matches the full-domain circle
     D = 64; m = 2D
-    stats(sim) = (sim_step!(sim;remeasure=false); [maximum(sim.flow.u[:,:,1]),maximum(abs,sim.flow.u[:,:,2]),minimum(sim.flow.u[1,:,1])])
+    stats(sim) = (sim_step!(sim;remeasure=false); [maximum(sim.flow.u[:,:,1]),maximum(abs,sim.flow.u[:,:,2]),minimum(sim.flow.u[1,2:end-1,1])]) # corner ghosts are not set
     half(;kw...) = BiotSimulation((m,m÷2), (1,0), D; body=AutoBody((x,t)->√((x[1]-m/2)^2+x[2]^2)-D/2),ν=D/1e4,kw...)
     sim = half(symmetry=(-2,))
     @test !any(Ti->Ti.I[2]==1 && last(Ti)==2, sim.pois.tar[1]) # symmetry plane has no Biot-Savart targets
