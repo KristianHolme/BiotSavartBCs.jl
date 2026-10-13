@@ -5,19 +5,27 @@ fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=()) = @loop (ω[I,1],ω[I,2],ω[I,3
 fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=()) = @loop (ω[I,1] = WaterLily.ω(I,u); ω[I,2] = zero(eltype(ω))) over I ∈ sources(size_u(ω)[1],perdir...)
 
 # Incompressible & irrotational ghosts
+import WaterLily: CIj
 function pflowBC!(u)
     N,n = size_u(u)
-    @inline edge(I,j,val) = 2<I.I[j]<N[j] ? val : zero(val)
-    for i ∈ 1:n # loops launch over the faces normal to i, see WaterLily.face
-        for j ∈ 1:n # Tangential direction ghosts, curl=0
-            j==i && continue
-            @loop u[I,j] = u[I+δ(i,I),j] - edge(I,j,∂(j,CartesianIndex(I+δ(i,I),i),u)) over I ∈ face(slice_u(N,i,j,1),i)
-            @loop u[I,j] = u[I-δ(i,I),j] + edge(I,j,∂(j,CartesianIndex(I,i),u)) over I ∈ face(slice_u(N,i,j,N[i]),i)
-        end # Normal direction ghosts, div=0
-        @loop u[I,i] += WaterLily.div(I,u) over I ∈ face(WaterLily.slice(N.-1,1,i,2),i)
+    for i ∈ 1:n
+        @loop pflow!(u,Ii,i,N) over Ii ∈ face(CartesianIndices((ntuple(k->k==i ? (1:1) : (1:N[k]),n)...,1:n)),i)
     end
 end
-slice_u(N::NTuple{n},i,j,s) where n = CartesianIndices(ntuple(k-> k==i ? (s:s) : k==j ? (2:N[k]) : (2:N[k]-1),n))
+@inline function pflow!(u,Ii,i,N)
+    I,j = front(Ii),last(Ii)
+    if j≠i
+        u[Ii] = curl0(u,I,i,j,N,true); u[CIj(i,Ii,N[i])] = curl0(u,CIj(i,I,N[i]),i,j,N,false)
+    elseif any(ntuple(k->k≠i && I.I[k]∈(1,N[k]),length(N)))
+        u[Ii] = u[I+δ(i,I),i]
+    else
+        u[Ii] = sum(ntuple(k->k==i ? u[I+δ(i,I),i] : curl0(u,I+δ(k,I),i,k,N,true)-curl0(u,I,i,k,N,true),length(N)))
+    end
+end
+@inline function curl0(u,I,i,j,N,lower)
+    F = lower ? I+δ(i,I) : I; J = lower ? F : I-δ(i,I)
+    u[J,j] - (lower ? 1 : -1)*(2<I.I[j]<N[j] ? u[F,i]-u[F-δ(j,F),i] : zero(eltype(u)))
+end
 
 # Biot-Savart BCs
 function biotBC!(u,U,ml,targets,flat_targets;fmm=true,perdir=(),symmetry=())
