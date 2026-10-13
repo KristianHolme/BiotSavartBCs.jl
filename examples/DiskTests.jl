@@ -1,4 +1,7 @@
 using WaterLily,StaticArrays,CUDA,BiotSavartBCs
+# the paper's results need a tighter pressure tolerance than the 2e-3 default
+WaterLily.solver!(ml::MultiLevelPoisson) = WaterLily.solver!(ml;tol=5e-5)
+WaterLily.mom_project!(a::AbstractFlow,b::BiotSavartBCs.BiotSavartPoisson,w::Int,t) = WaterLily.mom_project!(a,b,w,t,5e-5,32)
 using JLD2,Plots
 using Logging; disable_logging(Logging.Debug)
 figdir = joinpath(@__DIR__,"..","tex","fig") # paper figures are written here
