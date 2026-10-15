@@ -32,15 +32,18 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
 end
 WaterLily.update!(b::BiotSavartPoisson) = (WaterLily.update!(b.ml); set_idx!(b))
 set_idx!(b) = ((b.box[],b.idx[]) = near_targets(b.ml.levels[1].L,b.ω,b.ftar,b.ml.perdir); b)
-# Targets whose `remaining` window reaches the box around 0<μ₀<1, where a pressure update changes ω.
-# Symmetry images only see part of that window, and a periodic box spans the period.
 function near_targets(μ₀,ω,ftar,perdir)
-    n = ndims(μ₀)-1; m = dropdims(any(x->0<x<1,μ₀,dims=n+1),dims=n+1); any(m) || return CartesianIndices(ntuple(_->1:0,n)),similar(ftar,Int,0)
-    span(d) = d∈perdir ? (1:size(m,d)) : (v = Array(vec(any(m,dims=Tuple(filter(≠(d),1:n))))); findfirst(v)-1:findlast(v)+1)
-    B,depth = CartesianIndices(ntuple(span,n)),length(ω)
-    boxes,domains = ntuple(l->foldl((B,_)->down(B),1:l-1;init=B),depth),map(a->inside(size_u(a)[1]),ω)
+    B,depth = transition_box(μ₀,perdir),length(ω); isempty(B) && return B,similar(ftar,Int,0)
+    boxes,domains = ntuple(l->coarsen(B,l),depth),map(a->inside(size_u(a)[1]),ω)
     B,findall(((l,T),)->l==depth || !isempty(inR(remaining(front(T),domains[l],perdir...),boxes[l])),ftar)
 end
+function transition_box(μ₀,perdir)
+    n = ndims(μ₀)-1; m = dropdims(any(x->0<x<1,μ₀,dims=n+1),dims=n+1)
+    any(m) || return CartesianIndices(ntuple(_->1:0,n))
+    span(d) = d∈perdir ? (1:size(m,d)) : (v = Array(vec(any(m,dims=Tuple(filter(≠(d),1:n))))); findfirst(v)-1:findlast(v)+1)
+    CartesianIndices(ntuple(span,n))
+end
+coarsen(B,l) = l==1 ? B : coarsen(down(B),l-1)
 import WaterLily: div,diagonal,δv,perBC!
 
 """
