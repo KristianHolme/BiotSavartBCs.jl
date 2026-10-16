@@ -2,8 +2,14 @@
 import WaterLily: permute,∂,face
 fill_ω!(ml::Tuple,u,perdir=()) = (ω=first(ml); fill!(ω,zero(eltype(ω))); fill_ω!(ω,u,perdir); restrict!(ml))
 fill_ω!(ml::Tuple,u,perdir,R) = (ω=first(ml); fill_ω!(ω,u,perdir,inR(R,sources(size_u(ω)[1],perdir...))); restrict!(ml,R)) # refresh R only
-fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=(),R=sources(size_u(ω)[1],perdir...)) = @loop (ω[I,1],ω[I,2],ω[I,3]) = WaterLily.ω(I,u) over I ∈ R
-fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=(),R=sources(size_u(ω)[1],perdir...)) = @loop (ω[I,1] = WaterLily.ω(I,u); ω[I,2] = zero(eltype(ω))) over I ∈ R
+fill_ω!(ω::AbstractArray{<:Any,4},u,perdir=(),R=sources(size_u(ω)[1],perdir...)) = @loop (ω[I,1],ω[I,2],ω[I,3]) = WaterLily.ω(I,vel(u)) over I ∈ R
+fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=(),R=sources(size_u(ω)[1],perdir...)) = @loop (ω[I,1] = WaterLily.ω(I,vel(u)); ω[I,2] = zero(eltype(ω))) over I ∈ R
+
+# Projected velocity u-μ₀∇p evaluated lazily from u=(u,μ₀,p)
+struct Projected{U,M,P}; u::U; μ₀::M; p::P; end
+@inline Base.getindex(a::Projected,I::CartesianIndex,i) = a.u[I,i]-a.μ₀[I,i]*∂(i,I,a.p)
+@inline vel(u) = u
+@inline vel(u::Tuple) = Projected(u...)
 
 # Incompressible & irrotational ghosts
 import WaterLily: CIj
