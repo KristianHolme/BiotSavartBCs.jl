@@ -9,7 +9,7 @@ import WaterLily: CIj
 function pflowBC!(u)
     N,n = size_u(u)
     for i ∈ 1:n
-        @loop pflow!(u,Ii,i,N) over Ii ∈ face(CartesianIndices((ntuple(k->k==i ? (1:1) : (1:N[k]),n)...,1:n)),i)
+        @loop pflow!(u,Ii,i,N) over Ii ∈ face(CartesianIndices((ntuple(k->k==i ? (1:1) : (1:N[k]),length(N))...,1:n)),i)
     end
 end
 @inline function pflow!(u,Ii,i,N)
