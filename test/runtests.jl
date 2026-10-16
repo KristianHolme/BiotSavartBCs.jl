@@ -156,6 +156,16 @@ using BiotSavartBCs: slice
     @test maximum(abs,(u.-u₀)[3:end-2,1,2])<0.003 # normal
 end
 
+@testset "pflowBC! edges and corners" begin
+    isghost(Ii,N) = (I = front(Ii).I; c = last(Ii); any(k->I[k]==1 || (I[k]==N[k] && k≠c),eachindex(N)))
+    for N in ((10,12),(10,12,8))
+        u = rand(Float32,N...,length(N)); u[filter(Ii->isghost(Ii,N),CartesianIndices(u))] .= NaN32
+        pflowBC!(u)
+        @test !any(isnan,u)
+        length(N)==2 && @test u[[1,end],1,:]==u[[1,end],2,:] && u[[1,end],end,1]==u[[1,end],end-1,1]
+    end
+end
+
 @testset "BiotSavartPoisson.jl" begin
     circ(D;fmm,U=1,m=2D) = BiotSimulation((m,m), (U,0), D; body=AutoBody((x,t)->√sum(abs2,x .- m/2)-D/2),ν=U*D/1e4,fmm)
     for fmm in (true,false)
