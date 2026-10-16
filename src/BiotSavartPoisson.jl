@@ -31,17 +31,21 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = (WaterLily.update!(b.ml); set_idx!(b))
-set_idx!(b) = ((b.box[],b.idx[]) = near_targets(b.ml.levels[1].L,b.ω,b.ftar,b.ml.perdir); b)
-function near_targets(μ₀,ω,ftar,perdir)
-    B,depth = transition_box(μ₀,perdir),length(ω); isempty(B) && return B,similar(ftar,Int,0)
+function set_idx!(b)
+    B = transition_box(b.ml.levels[1].L,b.ml.perdir)
+    isassigned(b.idx) && B==b.box[] && return b
+    b.box[],b.idx[] = B,near_targets(B,b.ω,b.ftar,b.ml.perdir); b
+end
+function near_targets(B,ω,ftar,perdir)
+    depth = length(ω); isempty(B) && return similar(ftar,Int,0)
     boxes,domains = ntuple(l->coarsen(B,l),depth),map(a->inside(size_u(a)[1]),ω)
-    B,findall(((l,T),)->l==depth || !isempty(inR(remaining(front(T),domains[l],perdir...),boxes[l])),ftar)
+    findall(((l,T),)->l==depth || !isempty(inR(remaining(front(T),domains[l],perdir...),boxes[l])),ftar)
 end
 function transition_box(μ₀,perdir)
-    n = ndims(μ₀)-1; m = dropdims(any(x->0<x<1,μ₀,dims=n+1),dims=n+1)
-    any(m) || return CartesianIndices(ntuple(_->1:0,n))
-    span(d) = d∈perdir ? (1:size(m,d)) : (v = Array(vec(any(m,dims=Tuple(filter(≠(d),1:n))))); findfirst(v)-1:findlast(v)+1)
-    CartesianIndices(ntuple(span,n))
+    R = CartesianIndices(μ₀); none = (front(last(R)),front(first(R)))
+    bc = Broadcast.instantiate(Broadcast.broadcasted((x,I)->0<x<1 ? (front(I),front(I)) : none,μ₀,R))
+    lo,hi = mapreduce(identity,((a,b),(c,d))->(min(a,c),max(b,d)),bc;init=none)
+    CartesianIndices(ntuple(d->d∈perdir ? (1:size(μ₀,d)) : lo[d]-1:hi[d]+1,ndims(μ₀)-1))
 end
 coarsen(B,l) = l==1 ? B : coarsen(down(B),l-1)
 import WaterLily: div,diagonal,δv,perBC!
