@@ -7,7 +7,7 @@ fill_ω!(ω::AbstractArray{<:Any,3},u,perdir=(),R=sources(size_u(ω)[1],perdir..
 
 # Projected velocity u-μ₀∇p evaluated lazily from u=(u,μ₀,p)
 struct Projected{U,M,P}; u::U; μ₀::M; p::P; end
-@inline Base.getindex(a::Projected,I::CartesianIndex,i) = a.u[I,i]-a.μ₀[I,i]*∂(i,I,a.p)
+Base.@propagate_inbounds Base.getindex(a::Projected,I::CartesianIndex,i) = a.u[I,i]-a.μ₀[I,i]*∂(i,I,a.p)
 @inline vel(u) = u
 @inline vel(u::Tuple) = Projected(u...)
 
