@@ -34,24 +34,14 @@ end
     u[J,j] - (lower ? 1 : -1)*(2<I.I[j]<N[j] ? u[F,i]-u[F-δ(j,F),i] : zero(eltype(u)))
 end
 
-# Biot-Savart BCs
-function biotBC!(u,U,ml,targets,flat_targets;fmm=true,perdir=(),symmetry=(),kw...)
-    fmm ? fmmBC!(ml,targets,flat_targets,perdir,symmetry;kw...) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
-    @loop _biotBC!(u,U,ml[1],Ii) over Ii ∈ targets[1]           # Set u = uᵥ+U
-end
-@inline function _biotBC!(u,U,uᵥ,Ii)
-    i,I = last(Ii),front(Ii); lower = I.I[i]==1
-    u[I+(lower ? δ(i,I) : zero(I)),i] = U[i]+uᵥ[Ii]
-end
-
 using Atomix
 # Biot-Savart BCs + residual update
-function biotBC_r!(r,u,U,ml,targets,flat_targets;fmm=true,perdir=(),symmetry=(),kw...)
+function biotBC!(r,u,U,ml,targets,flat_targets;fmm=true,perdir=(),symmetry=(),kw...)
     fmm ? fmmBC!(ml,targets,flat_targets,perdir,symmetry;kw...) : treeBC!(ml,targets[1],perdir) # Fill ml[targets]=uᵥ
-    @loop _biotBC_r!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]       # Update the u,r
+    @loop _biotBC!(r,u,U,ml[1],Ii) over Ii ∈ targets[1]         # Update the u,r
     fix_resid!(r,u,targets[1])                                     # Fix u,r
 end
-@inline function _biotBC_r!(r,u,U,uᵥ,Ii)
+@inline function _biotBC!(r,u,U,uᵥ,Ii)
     I,i = front(Ii),last(Ii); lower = I.I[i]==1
     uₙ = U[i]+uᵥ[Ii]
     uI = lower ? Ii+δ(i,Ii) : Ii; uₙ⁰ = u[uI]; u[uI] = uₙ

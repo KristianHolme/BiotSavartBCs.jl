@@ -46,49 +46,39 @@ function transition_box(μ₀,perdir)
     CartesianIndices(ntuple(d->d∈perdir ? (1:size(μ₀,d)) : lo[d]-1:hi[d]+1,ndims(μ₀)-1))
 end
 coarsen(B,l) = l==1 ? B : coarsen(down(B),l-1)
-import WaterLily: div,diagonal,δv,perBC!,mult
+import WaterLily: div,δv,perBC!,mult,L₁,L∞,Vcycle!,smooth!
 
 """
     mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w::Int, t, tol=2e-3, itmx=32)
 
-Custom project method for Biot-Savart BCs, applying biot_BC! to update the boundary velocity and residual at each iteration.
-Note: a.p holds the total pressure, and `u` is only projected once it has converged.
+Projection with Biot-Savart BCs: `biotBC!` updates the domain BCs and residual between V-cycles.
 """
 function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int, t, tol=2e-3,itmx=32) where N
-    dt = a.Δt[end]/w; a.p .*= dt  # Scale p *= Δt/w
-    U = BCTuple(a.uBC,t,N)        # BC tuple for current time step
-    perBC!(a.u,a.perdir); perBC!(a.p,a.perdir); fill_ω!(b.ω,a.u,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p),a.perdir,b.box[]) # ω of u-μ₀∇p, which differs from ∇×u only in box
-    biotBC!(a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own) # Apply domain BCs with fresh ω
+    dt = a.Δt[end]/w; a.p .*= dt
+    U,top = BCTuple(a.uBC,t,N),b.ml.levels[1]
+    perBC!(a.u,a.perdir); fill_ω!(b.ω,a.u,a.perdir); body_ω!(b,a)
+    @inside top.r[I] = ifelse(top.iD[I]==0,zero(eltype(top.r)),div(I,a.u)-δv(top.D,I)*div(I,a.V)-mult(I,top.L,top.D,a.p))
+    biotBC!(b,a,U)
 
-    # Set residual
-    top = b.ml.levels[1]; top.r .= 0
-    Dp = diagonal(top)  # Poisson matrix diagonal
-    @inside top.r[I] = ifelse(top.iD[I]==0,zero(eltype(top.r)),div(I,a.u)-δv(Dp,I)*div(I,a.V)-mult(I,top.L,top.D,a.p)) # flow divergence, not BDIM-ϵ stretching
-    fix_resid!(top.r,a.u,b.tar[1]) # only fix on the boundaries
-
-    r₁tol = WaterLily.l1n_tol(top, tol)
-    nᵖ,nᵇ,r₁ = 0,0,WaterLily.L₁(top)
-    @log ", $nᵖ, $(WaterLily.L∞(top)), $r₁, $nᵇ\n"
+    r₁tol,r₁ = WaterLily.l1n_tol(top,tol),L₁(top); nᵖ=nᵇ=0
+    @log ", $nᵖ, $(L∞(top)), $r₁, $nᵇ\n"
     while nᵖ<itmx
-        # V-cycle with fixed BCs until the residual drops >10x
         rtol = max(r₁tol,0.1r₁)
         while nᵖ<itmx
-            WaterLily.Vcycle!(b.ml); WaterLily.smooth!(top)
-            r₁ = WaterLily.L₁(top); nᵖ+=1
-            r₁<rtol && break
+            Vcycle!(b.ml); smooth!(top); nᵖ+=1
+            L₁(top)<rtol && break
         end
-        # Update the BCs with Biot-Savart (which requires updating ω) and repeat until convergence
-        perBC!(a.p,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p),a.perdir,b.box[]); biotBC_r!(top.r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own,idx=b.idx[]) # Update BC+residual
-        r₁ = WaterLily.L₁(top); r∞ = WaterLily.L∞(top); nᵇ+=1
+        body_ω!(b,a); biotBC!(b,a,U;idx=b.idx[])
+        r₁,r∞ = L₁(top),L∞(top); nᵇ+=1
         @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
-        (r₁<r₁tol && r∞<tol) && break
+        r₁<r₁tol && r∞<tol && break
     end
     push!(b.ml.n,nᵖ)
-    perBC!(a.p,a.perdir)
     @loop a.u[Ii] -= a.μ₀[Ii]*∂(last(Ii),front(Ii),a.p) over Ii ∈ inside_u(a.u)
-    pflowBC!(a.u)     # Update ghost BCs (domain is already correct)
-    perBC!(a.u,a.perdir)
-    a.p ./= dt        # rescale pressure solution
+    pflowBC!(a.u); perBC!(a.u,a.perdir); a.p ./= dt
 end
+# ω of u-μ₀∇p, which differs from ∇×u only in the body box
+@inline body_ω!(b,a) = (perBC!(a.p,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p),a.perdir,b.box[]))
+@inline biotBC!(b::BiotSavartPoisson,a,U;kw...) = biotBC!(b.ml.levels[1].r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own,kw...)
 BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
 BCTuple(f::Tuple,t,N) = f
