@@ -62,6 +62,11 @@ then added in a fixed order.
 """
 function induced!(ml,flat_targets,perdir=(),symmetry=();idx=eachindex(flat_targets),out=nothing,P=lanes(ml,length(idx)),part=similar(first(ml),length(idx)*P))
     n = length(idx); n == 0 && return
+    if P == 1 # no partial sums to add
+        isnothing(out) ? (@loop _induced1!(ml,flat_targets,idx,perdir,symmetry,k) over k ∈ 1:n) :
+                         (@loop _induced1!(out,ml,flat_targets,idx,perdir,symmetry,k) over k ∈ 1:n)
+        return
+    end
     @loop _induced!(part,ml,flat_targets,idx,perdir,symmetry,Ij,n,P) over Ij ∈ CartesianIndices((n,P))
     if isnothing(out)
         @loop _gather!(ml,flat_targets,idx,part,k,n,P) over k ∈ 1:n
@@ -73,9 +78,12 @@ end
 lanes(ml,n) = onCPU(first(ml)) ? 1 : clamp(prevpow(2,max(1,32768÷max(n,1))),1,16)
 partlength(nflat) = max(nflat,32768) # ≥ n*lanes(ml,n) for all n ≤ nflat
 @inline function _induced!(part,ml,flat_targets,idx,perdir,symmetry,Ij,n,P)
-    k,p = Ij.I; (l,T) = flat_targets[idx[k]]; lane = Lane(p,P)
-    part[k+(p-1)*n] = isempty(perdir) ? images(ml[l],T,symmetry,l,length(ml),lane) : periodic(ml[l],T,l,length(ml),lane,perdir...)
+    k,p = Ij.I
+    part[k+(p-1)*n] = _sum(ml,flat_targets[idx[k]],perdir,symmetry,Lane(p,P))
 end
+@inline _sum(ml,(l,T),perdir,symmetry,lane) = isempty(perdir) ? images(ml[l],T,symmetry,l,length(ml),lane) : periodic(ml[l],T,l,length(ml),lane,perdir...)
+@inline _induced1!(ml,flat_targets,idx,perdir,symmetry,k) = ((l,T) = flat_targets[idx[k]]; ml[l][T] = _sum(ml,(l,T),perdir,symmetry,Lane(1,1)))
+@inline _induced1!(out::AbstractVector,ml,flat_targets,idx,perdir,symmetry,k) = (out[idx[k]] = _sum(ml,flat_targets[idx[k]],perdir,symmetry,Lane(1,1)))
 @inline lanesum(part,k,n,P) = (s = zero(eltype(part)); for p in 1:P; s += part[k+(p-1)*n]; end; s)
 @inline _gather!(ml,flat_targets,idx,part,k,n,P) = ((l,T) = flat_targets[idx[k]]; ml[l][T] = lanesum(part,k,n,P))
 @inline _gather!(out::AbstractVector,idx,part,k,n,P) = (out[idx[k]] = lanesum(part,k,n,P))
