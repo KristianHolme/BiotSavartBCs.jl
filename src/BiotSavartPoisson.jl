@@ -12,9 +12,10 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
     ftar :: AbstractVector # flattened target list for kernel dispatch
     fmm  :: Bool           # use Fast Multi-level Method (`true`) or tree-sum (`false`)
     sym  :: Tuple          # symmetry plane faces
-    own  :: NTuple         # each level's own target sums from the last full FMM
+    own  :: AbstractVector # each flat target's own sum from the last full FMM
     box  :: Base.RefValue{CartesianIndices} # where a pressure update changes ω, see `near_targets`
     idx  :: Base.RefValue{AbstractVector}   # flat targets that can see that box
+    part :: AbstractVector # lane partial sums of the FMM targets, see `induced!`
     function BiotSavartPoisson(flow; nonbiotfaces=(), fmm=true, mem=Array, symmetry=())
         flow.exitBC && throw(ArgumentError("exitBC=true is ignored when using Biot-Savart BCs"))
         perdir = flow.perdir
@@ -24,8 +25,8 @@ struct BiotSavartPoisson{T,S,V} <: AbstractPoisson{T,S,V}
         ω  = MLArray(flow.f,perdir)   # top level aliases flow.f — no copy
         tar  = mem.(collect_targets(ω, (nonbiotfaces...,symmetry...,perdir...,(-).(perdir)...))) # no targets on these faces
         ftar = flatten_targets(tar)
-        own = map(t->similar(t,eltype(flow.p)),tar)
-        set_idx!(new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,fmm,symmetry,own,Ref{CartesianIndices}(),Ref{AbstractVector}()))
+        own,part = fill!(similar(flow.p,length(ftar)),0),similar(flow.p,partlength(length(ftar)))
+        set_idx!(new{eltype(flow.p),typeof(flow.p),typeof(flow.μ₀)}(ml,ω,tar,ftar,fmm,symmetry,own,Ref{CartesianIndices}(),Ref{AbstractVector}(),part))
     end
 end
 WaterLily.update!(b::BiotSavartPoisson) = (WaterLily.update!(b.ml); set_idx!(b))
@@ -79,6 +80,6 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
 end
 # ω of u-μ₀∇p, which differs from ∇×u only in the body box
 @inline body_ω!(b,a) = (perBC!(a.p,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p),a.perdir,b.box[]))
-@inline biotBC!(b::BiotSavartPoisson,a,U;kw...) = biotBC!(b.ml.levels[1].r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own,kw...)
+@inline biotBC!(b::BiotSavartPoisson,a,U;kw...) = biotBC!(b.ml.levels[1].r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own,part=b.part,kw...)
 BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
 BCTuple(f::Tuple,t,N) = f
