@@ -70,7 +70,7 @@ function induced!(ml,flat_targets,perdir=(),symmetry=();idx=eachindex(flat_targe
     end
 end
 # Lanes per target: many when few targets share the device, one on CPUs
-lanes(ml,n) = WaterLily.get_backend(ml) isa typeof(WaterLily.get_backend(Int[])) ? 1 : clamp(prevpow(2,max(1,32768÷max(n,1))),1,16)
+lanes(ml,n) = onCPU(first(ml)) ? 1 : clamp(prevpow(2,max(1,32768÷max(n,1))),1,16)
 partlength(nflat) = max(nflat,32768) # ≥ n*lanes(ml,n) for all n ≤ nflat
 @inline function _induced!(part,ml,flat_targets,idx,perdir,symmetry,Ij,n,P)
     k,p = Ij.I; (l,T) = flat_targets[idx[k]]; lane = Lane(p,P)

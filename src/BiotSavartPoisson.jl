@@ -53,33 +53,39 @@ import WaterLily: div,δv,perBC!,mult,L₁,L∞,Vcycle!,smooth!
     mom_project!(a::AbstractFlow, b::BiotSavartPoisson, w::Int, t, tol=2e-3, itmx=32)
 
 Projection with Biot-Savart BCs: `biotBC!` updates the domain BCs and residual between V-cycles.
+The pressure stays in physical units, so the residual is that of `div(u)/Δt`, and the
+tolerances are scaled by `1/Δt` to match the usual criterion on `div(u)`.
 """
 function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int, t, tol=2e-3,itmx=32) where N
-    dt = a.Δt[end]/w; a.p .*= dt
+    dt = a.Δt[end]/w; idt = inv(dt)
     U,top = BCTuple(a.uBC,t,N),b.ml.levels[1]
-    perBC!(a.u,a.perdir); fill_ω!(b.ω,a.u,a.perdir); body_ω!(b,a)
-    @inside top.r[I] = ifelse(top.iD[I]==0,zero(eltype(top.r)),div(I,a.u)-δv(top.D,I)*div(I,a.V)-mult(I,top.L,top.D,a.p))
-    biotBC!(b,a,U)
+    perBC!(a.u,a.perdir); fill_ω!(b.ω,a.u,a.perdir); body_ω!(b,a,dt)
+    @inside top.r[I] = ifelse(top.iD[I]==0,zero(eltype(top.r)),idt*(div(I,a.u)-δv(top.D,I)*div(I,a.V))-mult(I,top.L,top.D,a.p))
+    biotBC!(b,a,U,dt)
 
-    r₁tol,r₁ = WaterLily.l1n_tol(top,tol),L₁(top); nᵖ=nᵇ=0
-    @log ", $nᵖ, $(L∞(top)), $r₁, $nᵇ\n"
+    r₁tol,r₁ = WaterLily.l1n_tol(top,tol)*idt,L₁(top); r∞tol = tol*idt; nᵖ=nᵇ=0
+    @log ", $nᵖ, $(L∞(top)*dt), $(r₁*dt), $nᵇ\n"
     while nᵖ<itmx
         rtol = max(r₁tol,0.1r₁)
         while nᵖ<itmx
             Vcycle!(b.ml); smooth!(top); nᵖ+=1
             L₁(top)<rtol && break
         end
-        body_ω!(b,a); biotBC!(b,a,U;idx=b.idx[])
-        r₁,r∞ = L₁(top),L∞(top); nᵇ+=1
-        @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
-        r₁<r₁tol && r∞<tol && break
+        body_ω!(b,a,dt); biotBC!(b,a,U,dt;idx=b.idx[])
+        r₁,r∞ = L₁∞(top.r); nᵇ+=1
+        @log ", $nᵖ, $(r∞*dt), $(r₁*dt), $nᵇ\n"
+        r₁<r₁tol && r∞<r∞tol && break
     end
     push!(b.ml.n,nᵖ)
-    @loop a.u[Ii] -= a.μ₀[Ii]*∂(last(Ii),front(Ii),a.p) over Ii ∈ inside_u(a.u)
-    pflowBC!(a.u); perBC!(a.u,a.perdir); a.p ./= dt
+    @loop a.u[Ii] -= dt*a.μ₀[Ii]*∂(last(Ii),front(Ii),a.p) over Ii ∈ inside_u(a.u)
+    pflowBC!(a.u); perBC!(a.u,a.perdir)
 end
+# (Σ|r|,max|r|), in one reduction on GPUs
+L₁∞(r) = onCPU(r) ? (sum(abs,r),maximum(abs,r)) :
+    mapreduce(x->(abs(x),abs(x)),((a,b),(c,d))->(a+c,max(b,d)),r;init=(zero(eltype(r)),zero(eltype(r))))
+onCPU(a) = WaterLily.get_backend(a) isa typeof(WaterLily.get_backend(Int[]))
 # ω of u-μ₀∇p, which differs from ∇×u only in the body box
-@inline body_ω!(b,a) = (perBC!(a.p,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p),a.perdir,b.box[]))
-@inline biotBC!(b::BiotSavartPoisson,a,U;kw...) = biotBC!(b.ml.levels[1].r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own,part=b.part,kw...)
+@inline body_ω!(b,a,dt) = (perBC!(a.p,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p,dt),a.perdir,b.box[]))
+@inline biotBC!(b::BiotSavartPoisson,a,U,dt;kw...) = biotBC!(b.ml.levels[1].r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,dt,symmetry=b.sym,own=b.own,part=b.part,kw...)
 BCTuple(f::Function,t::T,N) where T = ntuple(i->f(i,zero(SVector{N,T}),t),N)
 BCTuple(f::Tuple,t,N) = f
