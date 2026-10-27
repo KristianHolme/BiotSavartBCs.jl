@@ -69,7 +69,7 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
             L₁(top)<rtol && break
         end
         body_ω!(b,a); biotBC!(b,a,U;idx=b.idx[])
-        r₁,r∞ = L₁(top),L∞(top); nᵇ+=1
+        r₁,r∞ = L₁∞(top.r); nᵇ+=1
         @log ", $nᵖ, $r∞, $r₁, $nᵇ\n"
         r₁<r₁tol && r∞<tol && break
     end
@@ -77,6 +77,10 @@ function WaterLily.mom_project!(a::AbstractFlow{N}, b::BiotSavartPoisson, w::Int
     @loop a.u[Ii] -= a.μ₀[Ii]*∂(last(Ii),front(Ii),a.p) over Ii ∈ inside_u(a.u)
     pflowBC!(a.u); perBC!(a.u,a.perdir); a.p ./= dt
 end
+# (Σ|r|,max|r|), in one reduction on GPUs
+L₁∞(r) = onCPU(r) ? (sum(abs,r),maximum(abs,r)) :
+    mapreduce(x->(abs(x),abs(x)),((a,b),(c,d))->(a+c,max(b,d)),r;init=(zero(eltype(r)),zero(eltype(r))))
+onCPU(a) = WaterLily.get_backend(a) isa typeof(WaterLily.get_backend(Int[]))
 # ω of u-μ₀∇p, which differs from ∇×u only in the body box
 @inline body_ω!(b,a) = (perBC!(a.p,a.perdir); fill_ω!(b.ω,(a.u,a.μ₀,a.p),a.perdir,b.box[]))
 @inline biotBC!(b::BiotSavartPoisson,a,U;kw...) = biotBC!(b.ml.levels[1].r,a.u,U,b.ω,b.tar,b.ftar;fmm=b.fmm,a.perdir,symmetry=b.sym,own=b.own,kw...)
